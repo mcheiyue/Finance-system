@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Tabs, Spin, Alert, Card, Button, Modal, Form, Select, InputNumber, 
-  message, Empty, Row, Col, theme, Space 
+import {
+  Tabs, Spin, Alert, Card, Button, Modal, Form, Select, InputNumber,
+  message, Empty, Row, Col, theme, Space
 } from 'antd';
 import { Pie, Line } from '@ant-design/plots';
-import { 
+import {
   SettingOutlined, PieChartOutlined, LineChartOutlined,
   ArrowUpOutlined, ArrowDownOutlined, WalletOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { EXPENSE_CATEGORIES } from '../constants';
+import { useTheme } from '../ThemeContext';
 
 const { Option } = Select;
 
 function StatisticsPage() {
   const { token } = theme.useToken();
+  const { isDarkMode } = useTheme();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [typeData, setTypeData] = useState([]);
@@ -23,6 +25,7 @@ function StatisticsPage() {
   const [summary, setSummary] = useState({ totalIncome: 0, totalExpense: 0 });
   const [budgetModalVisible, setBudgetModalVisible] = useState(false);
   const [budgetForm] = Form.useForm();
+
 
   const loadData = async () => {
     setLoading(true);
@@ -50,8 +53,8 @@ function StatisticsPage() {
         date, income: val.income, expense: val.expense, net: val.income - val.expense
       })).sort((a, b) => a.date.localeCompare(b.date));
       setTrendData(trData);
-      await loadCategoryStats('expense'); 
-    } catch (err) { setError(err.message); } 
+      await loadCategoryStats('expense');
+    } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
 
@@ -73,7 +76,7 @@ function StatisticsPage() {
   };
   const monoColors = ['#111827', '#374151', '#4B5563', '#6B7280', '#9CA3AF', '#D1D5DB'];
   const darkMonoColors = ['#F9FAFB', '#E5E7EB', '#D1D5DB', '#9CA3AF', '#6B7280', '#4B5563'];
-  const chartColors = token.mode === 'dark' ? darkMonoColors : monoColors;
+  const chartColors = isDarkMode ? darkMonoColors : monoColors;
 
   const typeConfig = {
     data: typeData,
@@ -109,10 +112,10 @@ function StatisticsPage() {
     yField: 'net',
     smooth: true,
     color: token.colorPrimary,
-    areaStyle: { fill: `l(270) 0:${token.colorBgContainer} 0.5:${token.colorPrimary} 1:${token.colorPrimary}`, fillOpacity: 0.1 }, 
+    areaStyle: { fill: `l(270) 0:${token.colorBgContainer} 0.5:${token.colorPrimary} 1:${token.colorPrimary}`, fillOpacity: 0.1 },
     point: { size: 3, shape: 'circle' },
-    yAxis: { grid: { line: { style: { lineDash: [2, 4], stroke: token.colorBorderSecondary } } } }, 
-    tooltip: { 
+    yAxis: { grid: { line: { style: { lineDash: [2, 4], stroke: token.colorBorderSecondary } } } },
+    tooltip: {
       showContent: true,
       domStyles: {
         'g2-tooltip': {
@@ -156,14 +159,14 @@ function StatisticsPage() {
         <Row gutter={[48, 24]}>
           <Col xs={24} lg={12}>
             <div style={{ textAlign: 'center', marginBottom: 16, fontWeight: 'bold', color: token.colorTextSecondary }}>收支类型</div>
-            <div style={{ height: 350 }}>{typeData.length > 0 ? <Pie {...typeConfig} /> : <Empty />}</div>
+            <div style={{ height: 350 }}>{typeData.length > 0 ? <Pie {...typeConfig} theme={isDarkMode ? 'dark' : 'light'} /> : <Empty />}</div>
           </Col>
           <Col xs={24} lg={12}>
-            <div style={{ display:'flex', justifyContent:'center', alignItems:'center', marginBottom:16, gap:10 }}>
-              <span style={{fontWeight:'bold', color:token.colorTextSecondary}}>分类占比</span>
-              <Select defaultValue="expense" size="small" onChange={val => loadCategoryStats(val)} options={[{value:'expense',label:'支出'},{value:'income',label:'收入'}]} />
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, gap: 10 }}>
+              <span style={{ fontWeight: 'bold', color: token.colorTextSecondary }}>分类占比</span>
+              <Select defaultValue="expense" size="small" onChange={val => loadCategoryStats(val)} options={[{ value: 'expense', label: '支出' }, { value: 'income', label: '收入' }]} />
             </div>
-            <div style={{ height: 350 }}>{categoryData.length > 0 ? <Pie {...categoryConfig} /> : <Empty />}</div>
+            <div style={{ height: 350 }}>{categoryData.length > 0 ? <Pie {...categoryConfig} theme={isDarkMode ? 'dark' : 'light'} /> : <Empty />}</div>
           </Col>
         </Row>
       )
@@ -171,32 +174,31 @@ function StatisticsPage() {
     {
       key: '2',
       label: <span><LineChartOutlined /> 资产趋势</span>,
-      children: <div style={{ height: 400, padding: '0 20px' }}><Line {...trendConfig} /></div>
+      children: <div style={{ height: 400, padding: '0 20px' }}><Line {...trendConfig} theme={isDarkMode ? 'dark' : 'light'} /></div>
     }
   ];
 
   return (
     <div>
       <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
-        {/* 👉 1. 标题改回中文 */}
         <Col xs={24} sm={12}><StatCard title="总收入" value={summary.totalIncome} color={token.colorSuccess} icon={<ArrowUpOutlined />} /></Col>
         <Col xs={24} sm={12}><StatCard title="总支出" value={summary.totalExpense} color={token.colorError} icon={<ArrowDownOutlined />} /></Col>
       </Row>
 
-      <Card 
-        variant="borderless" 
-        style={{ borderRadius: 8, border: `1px solid ${token.colorBorder}` }} 
-        title={<Space><WalletOutlined/><span>收支分析</span></Space>} 
+      <Card
+        variant="borderless"
+        style={{ borderRadius: 8, border: `1px solid ${token.colorBorder}` }}
+        title={<Space><WalletOutlined /><span>收支分析</span></Space>}
         extra={<Button type="primary" icon={<SettingOutlined />} onClick={() => setBudgetModalVisible(true)}>预算</Button>}
       >
         <Spin spinning={loading}><Tabs defaultActiveKey="1" items={tabItems} /></Spin>
       </Card>
 
       <Modal title="设置预算" open={budgetModalVisible} onCancel={() => setBudgetModalVisible(false)} footer={null}>
-        <Alert title="超支后列表显示警告" type="info" showIcon style={{marginBottom:16}} />
+        <Alert title="超支后列表显示警告" type="info" showIcon style={{ marginBottom: 16 }} />
         <Form form={budgetForm} onFinish={handleBudgetFinish} layout="vertical">
-          <Form.Item name="category" label="分类" rules={[{ required: true }]}><Select options={EXPENSE_CATEGORIES.map(c=>({value:c,label:c}))}/></Form.Item>
-          <Form.Item name="limit" label="上限金额" rules={[{ required: true }]}><InputNumber prefix="¥" style={{width:'100%'}}/></Form.Item>
+          <Form.Item name="category" label="分类" rules={[{ required: true }]}><Select options={EXPENSE_CATEGORIES.map(c => ({ value: c, label: c }))} /></Form.Item>
+          <Form.Item name="limit" label="上限金额" rules={[{ required: true }]}><InputNumber prefix="¥" style={{ width: '100%' }} /></Form.Item>
           <Button type="primary" htmlType="submit" block>保存</Button>
         </Form>
       </Modal>

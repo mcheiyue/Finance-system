@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, Form, Input, Button, Descriptions, Tag, message, Row, Col, Spin, theme 
+import {
+  Card, Form, Input, Button, Descriptions, Tag, message, Row, Col, Spin, theme
 } from 'antd';
-import { 
-  UserOutlined, LockOutlined, MailOutlined, SafetyCertificateOutlined, CheckCircleOutlined 
+import {
+  UserOutlined, LockOutlined, MailOutlined, SafetyCertificateOutlined, CheckCircleOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -40,10 +40,8 @@ export default function ProfilePage() {
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
       <Row gutter={[24, 24]}>
-        
-        {/* 左侧：个人资料卡片 */}
         <Col xs={24} md={10}>
-          <Card 
+          <Card
             title={<span><UserOutlined /> 个人资料</span>}
             variant={false}
             style={{ height: '100%', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
@@ -51,15 +49,15 @@ export default function ProfilePage() {
             <Spin spinning={loading}>
               {userInfo && (
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <div style={{ 
-                    width: 80, height: 80, background: token.colorPrimaryBg, 
-                    borderRadius: '50%', margin: '0 auto 20px', 
+                  <div style={{
+                    width: 80, height: 80, background: token.colorPrimaryBg,
+                    borderRadius: '50%', margin: '0 auto 20px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 40, color: token.colorPrimary 
+                    fontSize: 40, color: token.colorPrimary
                   }}>
                     {userInfo.username[0].toUpperCase()}
                   </div>
-                  
+
                   <Descriptions column={1} bordered size="small">
                     <Descriptions.Item label="用户 ID">{userInfo.id}</Descriptions.Item>
                     <Descriptions.Item label="用户名">{userInfo.username}</Descriptions.Item>
@@ -78,16 +76,15 @@ export default function ProfilePage() {
           </Card>
         </Col>
 
-        {/* 右侧：安全设置卡片 */}
         <Col xs={24} md={14}>
-          <Card 
+          <Card
             title={<span><SafetyCertificateOutlined /> 安全设置</span>}
             variant={false}
             style={{ height: '100%', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
           >
-            <Form 
-              form={form} 
-              layout="vertical" 
+            <Form
+              form={form}
+              layout="vertical"
               onFinish={handlePasswordChange}
               style={{ maxWidth: 400, margin: '0 auto', padding: '20px 0' }}
             >
