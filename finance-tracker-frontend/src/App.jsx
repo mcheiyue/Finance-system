@@ -91,8 +91,8 @@ export default function App() {
 
     position: 'sticky',
     top: 0,
-    zIndex: 1001, // 确保层级高于内容，防止内容滚动时覆盖 Header
-    width: '100%' // 确保宽度占满
+    zIndex: 1001, 
+    width: '100%' 
   };
 
   return (
