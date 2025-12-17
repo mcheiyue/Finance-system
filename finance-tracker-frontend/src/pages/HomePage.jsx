@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Button, Table, Modal, Form, InputNumber, Select, Radio, Input,
   message, Spin, Card, Tag, Tooltip, Popconfirm, Row, Col, Space,
-  DatePicker, theme, Typography, Avatar, App, Grid, Pagination // 👈 1. 新增 Pagination，移除 List (虽然保留List不报错但建议删掉import)
+  DatePicker, theme, Typography, Avatar, App, Grid, Pagination
 } from 'antd';
 import {
   DeleteOutlined, SearchOutlined, ReloadOutlined, DownloadOutlined, ArrowRightOutlined,
@@ -43,7 +43,7 @@ function HomePage() {
 
   const [form] = Form.useForm();
   const { token } = theme.useToken();
-  const screens = Grid.useBreakpoint(); // 获取屏幕尺寸
+  const screens = Grid.useBreakpoint();
 
   const loadTransactions = async () => {
     setLoading(true);
@@ -212,7 +212,7 @@ function HomePage() {
   const currentMobileData = displayData.slice(startIndex, endIndex);
 
   return (
-    <div style={{ margin: '0 auto' , marginTop: 24 }}>
+    <div style={{ margin: '0 auto', marginTop: 24 }}>
       <Card variant="borderless" style={{ marginBottom: 24 }} styles={{ body: { padding: '20px 24px' } }}>
         <Row gutter={[24, 16]} align="middle">
           <Col xs={24} sm={12} md={6}><Input placeholder="搜索..." prefix={<SearchOutlined style={{ color: token.colorTextSecondary }} />} value={searchText} onChange={e => setSearchText(e.target.value)} allowClear /></Col>
@@ -270,7 +270,7 @@ function HomePage() {
                           <Text type="secondary" style={{ fontSize: 12 }}>
                             {dayjs(item.timestamp).format('YYYY-MM-DD HH:mm')}
                           </Text>
-                          <Space> 
+                          <Space>
                             <Button size="small" type="text" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>
                             <Popconfirm title="确认删除此记录?" onConfirm={() => handleDelete(item.id)} okText="删除" cancelText="取消">
                               <Button size="small" type="text" danger icon={<DeleteOutlined />}>删除</Button>
@@ -281,7 +281,7 @@ function HomePage() {
                     );
                   })}
 
-                  <div style={{ textAlign: 'center', marginTop: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, width: '100%' }}>
                     <Pagination
                       simple
                       current={currentPage}
@@ -304,17 +304,24 @@ function HomePage() {
               size="middle"
               pagination={{
                 current: currentPage,
-                pageSize,
+                pageSize: pageSize,
                 total: displayData.length,
-                onChange: (p, s) => { setCurrentPage(p); setPageSize(s); },
-                showTotal: t => `共 ${t} 条`
+                pageSizeOptions: ['10', '20', '50', '100'],
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条 / 共 ${total} 条`,
+                position: ['bottomCenter'],
+                onChange: (p, s) => {
+                  setCurrentPage(p);
+                  setPageSize(s);
+                }
               }}
             />
           )}
         </Spin>
       </Card>
 
-      <Modal title={editingId ? "编辑记录" : "新增记录"} open={modalVisible} onCancel={() => setModalVisible(false)} footer={null} width={500}>
+      <Modal title={editingId ? "编辑记录" : "新增记录"} open={modalVisible} onCancel={() => setModalVisible(false)} footer={null} width={500} zIndex={1050}>
         <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ type: 'expense' }} style={{ marginTop: 20 }}>
           <Row gutter={16}>
             <Col span={12}>
