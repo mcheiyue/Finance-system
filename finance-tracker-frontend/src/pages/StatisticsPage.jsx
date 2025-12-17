@@ -295,7 +295,7 @@ function StatisticsPage() {
         <Spin spinning={loading}><Tabs defaultActiveKey="1" items={tabItems} /></Spin>
       </Card>
 
-      <Modal title="设置预算" open={budgetModalVisible} onCancel={() => setBudgetModalVisible(false)} footer={null}>
+      <Modal title="设置预算" open={budgetModalVisible} onCancel={() => setBudgetModalVisible(false)} footer={null} zIndex={1050}>
         <Alert title="超支后列表显示警告" type="info" showIcon style={{ marginBottom: 16 }} />
         <Form form={budgetForm} onFinish={handleBudgetFinish} layout="vertical">
           <Form.Item name="category" label="分类" rules={[{ required: true }]}><Select options={EXPENSE_CATEGORIES.map(c => ({ value: c, label: c }))} /></Form.Item>

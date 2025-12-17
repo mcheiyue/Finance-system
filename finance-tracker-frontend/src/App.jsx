@@ -26,6 +26,7 @@ export default function App() {
   const { themeMode, changeTheme, isDarkMode } = useTheme();
   const { token } = theme.useToken();
   const { user, logout } = useAuth();
+  const [isMobile, setIsMobile] = React.useState(false);
 
   useEffect(() => {
     const path = location.pathname;
@@ -34,6 +35,8 @@ export default function App() {
     else if (path === '/stats') pageTitle = '统计报表';
     else if (path === '/admin') pageTitle = '系统管理';
     else if (path === '/profile') pageTitle = '个人中心';
+    else if (path === '/login') pageTitle = '用户登录';
+    else if (path === '/register') pageTitle = '用户注册';
     document.title = `${pageTitle} - 个人理财系统`;
   }, [location]);
 
@@ -130,7 +133,7 @@ export default function App() {
             breakpoint="lg"
             collapsedWidth="0"
             onBreakpoint={(broken) => {
-              console.log(broken);
+              setIsMobile(broken);
             }}
             zeroWidthTriggerStyle={{ top: '10px' }}
             style={{
@@ -147,7 +150,12 @@ export default function App() {
             />
           </Sider>
 
-          <Layout style={{ padding: '0', background: token.colorBgLayout, marginLeft: 220 }}>
+          <Layout style={{
+            padding: '0',
+            background: token.colorBgLayout,
+            marginLeft: isMobile ? 0 : 220,
+            transition: 'margin-left 0.2s'
+          }}>
             <Content className="site-layout-content" style={{ width: '100%', minHeight: 280, maxWidth: '1200px', margin: '0 auto' }}>
               <Routes>
                 <Route path="/" element={<HomePage />} />
