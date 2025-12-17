@@ -19,7 +19,6 @@ export default function RegisterPage() {
         <Card className="auth-card" variant={false}>
 
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            {/* 👉 核心修改 */}
             <div className="auth-icon-box">
               <DollarOutlined style={{ fontSize: 32 }} />
             </div>

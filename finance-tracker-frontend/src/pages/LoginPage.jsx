@@ -34,7 +34,6 @@ export default function LoginPage() {
 
   return (
     <div className="auth-container">
-      {/* 👉 右上角主题切换按钮 */}
       <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 20 }}>
         <Button 
           shape="circle" 
