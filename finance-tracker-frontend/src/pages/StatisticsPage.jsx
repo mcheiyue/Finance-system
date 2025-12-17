@@ -280,7 +280,7 @@ function StatisticsPage() {
   ];
 
   return (
-    <div>
+    <div style={{ maxWidth: 1000, margin: '0 auto' , marginTop: 24}}>
       <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12}><StatCard title="总收入" value={summary.totalIncome} color={token.colorSuccess} icon={<ArrowUpOutlined />} /></Col>
         <Col xs={24} sm={12}><StatCard title="总支出" value={summary.totalExpense} color={token.colorError} icon={<ArrowDownOutlined />} /></Col>

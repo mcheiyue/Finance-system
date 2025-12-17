@@ -84,7 +84,12 @@ export default function App() {
     background: token.colorBgContainer,
     borderBottom: `1px solid ${token.colorBorderSecondary}`,
     padding: '0 24px',
-    zIndex: 20, transition: 'all 0.3s'
+    zIndex: 20, transition: 'all 0.3s',
+
+    position: 'sticky',
+    top: 0,
+    zIndex: 1001, // 确保层级高于内容，防止内容滚动时覆盖 Header
+    width: '100%' // 确保宽度占满
   };
 
   return (
@@ -142,7 +147,7 @@ export default function App() {
             />
           </Sider>
 
-          <Layout style={{ padding: '0', background: token.colorBgLayout }}>
+          <Layout style={{ padding: '0', background: token.colorBgLayout, marginLeft: 220 }}>
             <Content className="site-layout-content" style={{ width: '100%', minHeight: 280, maxWidth: '1200px', margin: '0 auto' }}>
               <Routes>
                 <Route path="/" element={<HomePage />} />
