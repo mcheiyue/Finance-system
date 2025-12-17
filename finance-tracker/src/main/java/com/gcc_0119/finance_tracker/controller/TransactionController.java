@@ -11,7 +11,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
-
 @RestController
 @RequestMapping("/api/transactions")
 @CrossOrigin(origins = "*")
@@ -34,14 +33,22 @@ public class TransactionController {
     public void deleteTransaction(@PathVariable String id) {
         transactionService.deleteById(id);
     }
+
+    @PutMapping("/{id}")
+    public Transaction updateTransaction(@PathVariable String id, @RequestBody Transaction transaction) {
+        return transactionService.update(id, transaction);
+    }
+
     @GetMapping("/stats/type")
     public Map<String, BigDecimal> getStatsByType() {
         return transactionService.getTotalByType();
     }
+
     @GetMapping("/stats/category")
     public Map<String, BigDecimal> getStatsByCategory(@RequestParam(required = false) String type) {
         return transactionService.getTotalByCategory(type);
     }
+
     @GetMapping("/stats/recent")
     public List<Transaction> getRecentTransactions(@RequestParam(defaultValue = "7") int days) {
         LocalDateTime now = LocalDateTime.now();

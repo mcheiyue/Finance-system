@@ -12,8 +12,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import org.bson.Document; 
-
+import org.bson.Document;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -25,9 +24,13 @@ import java.util.stream.Collectors;
 @Service
 public class TransactionService {
 
-    @Autowired private TransactionRepository transactionRepository;
-    @Autowired private MongoTemplate mongoTemplate;
-    @Autowired private UserRepository userRepository; 
+    @Autowired
+    private TransactionRepository transactionRepository;
+    @Autowired
+    private MongoTemplate mongoTemplate;
+    @Autowired
+    private UserRepository userRepository;
+
     private String getCurrentUserId() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         String username;
@@ -66,7 +69,7 @@ public class TransactionService {
     }
 
     public Map<String, BigDecimal> getTotalByType() {
-        String userId = getCurrentUserId(); 
+        String userId = getCurrentUserId();
         MatchOperation matchUser = Aggregation.match(Criteria.where("userId").is(userId));
 
         GroupOperation group = Aggregation.group("type").sum("amount").as("total");
@@ -79,10 +82,10 @@ public class TransactionService {
                         r -> (String) r.get("_id"),
                         r -> {
                             Object total = r.get("total");
-                            if (total == null) return BigDecimal.ZERO;
+                            if (total == null)
+                                return BigDecimal.ZERO;
                             return new BigDecimal(total.toString()).setScale(2, RoundingMode.HALF_UP);
-                        }
-                ));
+                        }));
     }
 
     public Map<String, BigDecimal> getTotalByCategory(String type) {
@@ -103,10 +106,10 @@ public class TransactionService {
                         r -> (String) r.get("_id"),
                         r -> {
                             Object total = r.get("total");
-                            if (total == null) return BigDecimal.ZERO;
+                            if (total == null)
+                                return BigDecimal.ZERO;
                             return new BigDecimal(total.toString()).setScale(2, RoundingMode.HALF_UP);
-                        }
-                ));
+                        }));
     }
 
     public List<Transaction> getTransactionsByDateRange(LocalDateTime start, LocalDateTime end) {
@@ -115,10 +118,23 @@ public class TransactionService {
                 .and("userId").is(userId);
 
         return mongoTemplate.find(
-                        org.springframework.data.mongodb.core.query.Query.query(criteria),
-                        Transaction.class
-                ).stream()
+                org.springframework.data.mongodb.core.query.Query.query(criteria),
+                Transaction.class).stream()
                 .sorted((t1, t2) -> t1.getTimestamp().compareTo(t2.getTimestamp()))
                 .collect(Collectors.toList());
+    }
+
+    public Transaction update(String id, Transaction transaction) {
+        Transaction existing = transactionRepository.findById(id).orElse(null);
+        if (existing != null && existing.getUserId().equals(getCurrentUserId())) {
+            existing.setAmount(transaction.getAmount());
+            existing.setType(transaction.getType());
+            existing.setCategory(transaction.getCategory());
+            existing.setDescription(transaction.getDescription());
+            existing.setTimestamp(transaction.getTimestamp());
+            return transactionRepository.save(existing);
+        } else {
+            throw new RuntimeException("无权修改此记录或记录不存在");
+        }
     }
 }

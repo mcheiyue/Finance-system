@@ -9,7 +9,7 @@ import {
   AppstoreOutlined, CoffeeOutlined, CarOutlined, ShoppingOutlined,
   SkinOutlined, HomeOutlined, MedicineBoxOutlined, ReadOutlined,
   BankOutlined, RestOutlined, GiftOutlined, PlusOutlined,
-  QuestionCircleOutlined, ExclamationCircleOutlined, DollarOutlined
+  QuestionCircleOutlined, ExclamationCircleOutlined, DollarOutlined, EditOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -39,6 +39,7 @@ function HomePage() {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [editingId, setEditingId] = useState(null);
 
   const [form] = Form.useForm();
   const { token } = theme.useToken();
@@ -113,12 +114,46 @@ function HomePage() {
   const handleFinish = async (values) => {
     try {
       const payload = { ...values, timestamp: values.timestamp ? values.timestamp.toISOString() : new Date().toISOString() };
-      await axios.post('/api/transactions', payload);
-      message.success('保存成功'); setModalVisible(false); form.resetFields(); loadTransactions();
-    } catch (e) { message.error(e.message); }
+
+      if (editingId) {
+        await axios.put(`/api/transactions/${editingId}`, payload);
+        message.success('更新成功');
+      } else {
+        await axios.post('/api/transactions', payload);
+        message.success('保存成功');
+      }
+
+      setModalVisible(false);
+      form.resetFields();
+      setEditingId(null);
+      loadTransactions();
+    } catch (e) {
+      message.error(e.message);
+    }
   };
 
-  const showModal = () => { form.resetFields(); form.setFieldsValue({ timestamp: dayjs() }); setCurrentType('expense'); setModalVisible(true); };
+  const showModal = () => {
+    setEditingId(null);
+    form.resetFields();
+    form.setFieldsValue({ timestamp: dayjs() });
+    setCurrentType('expense');
+    setModalVisible(true);
+  };
+
+  const handleEdit = (record) => {
+    setEditingId(record.id);
+    setCurrentType(record.type);
+
+    form.setFieldsValue({
+      type: record.type,
+      category: record.category,
+      amount: record.amount,
+      description: record.description,
+      timestamp: dayjs(record.timestamp),
+    });
+
+    setModalVisible(true);
+  };
 
   const columns = [
     {
@@ -156,8 +191,19 @@ function HomePage() {
     { title: '备注', dataIndex: 'description', ellipsis: true, render: t => <span style={{ color: token.colorTextSecondary }}>{t || '-'}</span> },
     { title: '日期', dataIndex: 'timestamp', width: 160, align: 'center', render: t => <span style={{ color: token.colorTextSecondary }}>{dayjs(t).format('YYYY-MM-DD HH:mm')}</span> },
     {
-      title: '操作', key: 'action', width: 80, align: 'center',
-      render: (_, record) => <Popconfirm title="删除?" onConfirm={() => handleDelete(record.id)}><Button type="text" danger icon={<DeleteOutlined />} /></Popconfirm>,
+      title: '操作', key: 'action', width: 120, align: 'center',
+      render: (_, record) => (
+        <Space>
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          />
+          <Popconfirm title="删除?" onConfirm={() => handleDelete(record.id)}>
+            <Button type="text" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
     },
   ];
 
@@ -166,7 +212,7 @@ function HomePage() {
   const currentMobileData = displayData.slice(startIndex, endIndex);
 
   return (
-    <div style={{ margin: '0 auto' }}>
+    <div style={{ margin: '0 auto' , marginTop: 24 }}>
       <Card variant="borderless" style={{ marginBottom: 24 }} styles={{ body: { padding: '20px 24px' } }}>
         <Row gutter={[24, 16]} align="middle">
           <Col xs={24} sm={12} md={6}><Input placeholder="搜索..." prefix={<SearchOutlined style={{ color: token.colorTextSecondary }} />} value={searchText} onChange={e => setSearchText(e.target.value)} allowClear /></Col>
@@ -185,10 +231,10 @@ function HomePage() {
                   {currentMobileData.map((item) => {
                     const isIncome = item.type === 'income';
                     const Icon = CATEGORY_ICONS[item.category] || <AppstoreOutlined />;
-                    
+
                     return (
                       <Card
-                        key={item.id} 
+                        key={item.id}
                         size="small"
                         style={{ width: '100%', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
                         styles={{ body: { padding: '12px' } }}
@@ -224,26 +270,29 @@ function HomePage() {
                           <Text type="secondary" style={{ fontSize: 12 }}>
                             {dayjs(item.timestamp).format('YYYY-MM-DD HH:mm')}
                           </Text>
-                          <Popconfirm title="确认删除此记录?" onConfirm={() => handleDelete(item.id)} okText="删除" cancelText="取消">
-                            <Button size="small" type="text" danger icon={<DeleteOutlined />}>删除</Button>
-                          </Popconfirm>
+                          <Space> 
+                            <Button size="small" type="text" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>
+                            <Popconfirm title="确认删除此记录?" onConfirm={() => handleDelete(item.id)} okText="删除" cancelText="取消">
+                              <Button size="small" type="text" danger icon={<DeleteOutlined />}>删除</Button>
+                            </Popconfirm>
+                          </Space>
                         </div>
                       </Card>
                     );
                   })}
-                  
+
                   <div style={{ textAlign: 'center', marginTop: 16 }}>
                     <Pagination
                       simple
                       current={currentPage}
-                      pageSize={pageSize} 
+                      pageSize={pageSize}
                       total={displayData.length}
                       onChange={(page) => setCurrentPage(page)}
                     />
                   </div>
                 </div>
               ) : (
-                 <div style={{textAlign: 'center', padding: '20px', color: token.colorTextSecondary}}>暂无数据</div>
+                <div style={{ textAlign: 'center', padding: '20px', color: token.colorTextSecondary }}>暂无数据</div>
               )}
             </div>
           ) : (
@@ -265,7 +314,7 @@ function HomePage() {
         </Spin>
       </Card>
 
-      <Modal title="新增记录" open={modalVisible} onCancel={() => setModalVisible(false)} footer={null} width={500}>
+      <Modal title={editingId ? "编辑记录" : "新增记录"} open={modalVisible} onCancel={() => setModalVisible(false)} footer={null} width={500}>
         <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ type: 'expense' }} style={{ marginTop: 20 }}>
           <Row gutter={16}>
             <Col span={12}>

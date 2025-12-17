@@ -38,7 +38,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto' , marginTop: 24}}>
       <Row gutter={[24, 24]}>
         <Col xs={24} md={10}>
           <Card
