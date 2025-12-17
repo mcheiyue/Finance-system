@@ -28,8 +28,8 @@ function StatisticsPage() {
     setLoading(true);
     try {
       const [typeRes, trendRes] = await Promise.all([
-        axios.get('http://localhost:8080/api/transactions/stats/type'),
-        axios.get('http://localhost:8080/api/transactions/stats/recent?days=30')
+        axios.get('/api/transactions/stats/type'),
+        axios.get('/api/transactions/stats/recent?days=30')
       ]);
 
       const tData = Object.entries(typeRes.data).map(([type, total]) => ({
@@ -57,7 +57,7 @@ function StatisticsPage() {
 
   const loadCategoryStats = async (type) => {
     try {
-      const res = await axios.get('http://localhost:8080/api/transactions/stats/category', { params: { type } });
+      const res = await axios.get('/api/transactions/stats/category', { params: { type } });
       setCategoryData(Object.entries(res.data).map(([c, t]) => ({ category: c, total: Number(t) })).sort((a, b) => b.total - a.total));
     } catch (e) { setError(e.message); }
   };

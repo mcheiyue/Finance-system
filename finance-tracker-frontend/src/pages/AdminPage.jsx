@@ -19,7 +19,7 @@ export default function AdminPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8080/api/admin/users');
+      const res = await axios.get('/api/admin/users');
       setUsers(res.data);
     } catch (err) {
       message.error('加载用户失败: ' + (err.response?.data?.message || err.message));
@@ -30,7 +30,7 @@ export default function AdminPage() {
   const loadAllTransactions = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8080/api/admin/transactions/all');
+      const res = await axios.get('/api/admin/transactions/all');
       setTransactions(res.data);
     } catch (err) {
       message.error('加载账单失败: ' + err.message);
@@ -40,7 +40,7 @@ export default function AdminPage() {
   };
   const handleDeleteUser = async (id) => {
     try {
-      await axios.delete(`http://localhost:8080/api/admin/users/${id}`);
+      await axios.delete(`/api/admin/users/${id}`);
       message.success('用户及其数据已删除');
       loadUsers(); 
     } catch (err) {
