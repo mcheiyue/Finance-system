@@ -86,8 +86,7 @@ function StatisticsPage() {
     angleField: 'total',
     colorField: 'type',
     radius: 0.8,
-    innerRadius: 0.7,
-    
+    innerRadius: 0.5,
     scale: {
       color: {
         domain: ['收入', '支出'],
@@ -95,7 +94,6 @@ function StatisticsPage() {
       },
     },
     label: {
-      
       text: (d) => {
         const percent = totalTypeAmount > 0 ? d.total / totalTypeAmount : 0;
         return `${d.type} ${(percent * 100).toFixed(0)}%`;
@@ -143,7 +141,6 @@ function StatisticsPage() {
       },
     },
     label: {
-      
       text: (d) => {
         const percent = totalCategoryAmount > 0 ? d.total / totalCategoryAmount : 0;
         return `${d.category} ${(percent * 100).toFixed(0)}%`;
@@ -154,6 +151,9 @@ function StatisticsPage() {
         fill: token.colorTextSecondary,
       },
       connector: true,
+      transform: [
+        { type: 'overlapDodgeY' }, 
+      ],
     },
     
     legend: {
