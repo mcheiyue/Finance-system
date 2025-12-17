@@ -23,17 +23,17 @@ const PrivateRoute = ({ children }) => {
 
 export default function App() {
   const location = useLocation();
-  const { themeMode, changeTheme, isDarkMode } = useTheme(); 
+  const { themeMode, changeTheme, isDarkMode } = useTheme();
   const { token } = theme.useToken();
   const { user, logout } = useAuth();
 
   useEffect(() => {
     const path = location.pathname;
     let pageTitle = '个人理财系统';
-    if(path === '/') pageTitle = '账单明细';
-    else if(path === '/stats') pageTitle = '统计报表';
-    else if(path === '/admin') pageTitle = '系统管理';
-    else if(path === '/profile') pageTitle = '个人中心';
+    if (path === '/') pageTitle = '账单明细';
+    else if (path === '/stats') pageTitle = '统计报表';
+    else if (path === '/admin') pageTitle = '系统管理';
+    else if (path === '/profile') pageTitle = '个人中心';
     document.title = `${pageTitle} - 个人理财系统`;
   }, [location]);
 
@@ -52,13 +52,13 @@ export default function App() {
       key: '3', icon: <SafetyCertificateOutlined style={{ color: token.colorError }} />, label: <Link to="/admin">系统管理</Link>,
     });
   }
-  
+
   const getSelectedKey = () => {
     const path = location.pathname;
     if (path === '/') return ['1'];
     if (path === '/stats') return ['2'];
     if (path === '/admin') return ['3'];
-    return []; 
+    return [];
   };
 
   const userMenu = {
@@ -110,19 +110,32 @@ export default function App() {
             <Dropdown menu={userMenu}>
               <Button type="text" style={{ color: token.colorText, display: 'flex', alignItems: 'center' }}>
                 <Space>
-                  <UserOutlined /> 
+                  <UserOutlined />
                   <span style={{ fontWeight: 500 }}>{user?.username}</span>
-                  {isAdmin && <span style={{fontSize:10, border: `1px solid ${token.colorError}`, color: token.colorError, padding:'0 4px', borderRadius:4, fontWeight: 'bold'}}>ADMIN</span>}
+                  {isAdmin && <span style={{ fontSize: 10, border: `1px solid ${token.colorError}`, color: token.colorError, padding: '0 4px', borderRadius: 4, fontWeight: 'bold' }}>ADMIN</span>}
                 </Space>
               </Button>
             </Dropdown>
           </div>
         </Header>
-        
+
         <Layout>
-          <Sider width={220} style={{ background: token.colorBgLayout, borderRight: `1px solid ${token.colorBorderSecondary}` }}>
-            <Menu 
-              mode="inline" 
+          <Sider
+            width={220}
+            breakpoint="lg"
+            collapsedWidth="0"
+            onBreakpoint={(broken) => {
+              console.log(broken);
+            }}
+            zeroWidthTriggerStyle={{ top: '10px' }}
+            style={{
+              background: token.colorBgLayout,
+              borderRight: `1px solid ${token.colorBorderSecondary}`,
+              position: 'fixed', height: '100vh', left: 0, zIndex: 100
+            }}
+          >
+            <Menu
+              mode="inline"
               selectedKeys={getSelectedKey()}
               style={{ height: '100%', borderRight: 0, padding: '16px 8px', background: 'transparent' }}
               items={menuItems.map(item => ({ ...item, style: { borderRadius: 6, marginBottom: 4 } }))}
@@ -130,7 +143,7 @@ export default function App() {
           </Sider>
 
           <Layout style={{ padding: '0', background: token.colorBgLayout }}>
-            <Content style={{ width: '100%', minHeight: 280, padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+            <Content className="site-layout-content" style={{ width: '100%', minHeight: 280, maxWidth: '1200px', margin: '0 auto' }}>
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/stats" element={<StatisticsPage />} />

@@ -318,3 +318,9 @@ h1, h2, h3, h4, h5, p, span, div {
 [data-theme='dark'] .ant-message-notice-content .anticon {
   color: #34d399  !important;
 }
+
+@media (max-width: 768px) {
+  .site-layout-content {
+    padding: 12px !important;
+  }
+}
