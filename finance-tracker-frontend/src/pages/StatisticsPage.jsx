@@ -78,7 +78,7 @@ function StatisticsPage() {
   const darkMonoColors = ['#F9FAFB', '#E5E7EB', '#D1D5DB', '#9CA3AF', '#6B7280', '#4B5563'];
   const chartColors = isDarkMode ? darkMonoColors : monoColors;
 
-  // 1. 先计算总金额，用于手动计算百分比
+  
   const totalTypeAmount = typeData.reduce((sum, item) => sum + item.total, 0);
 
   const typeConfig = {
@@ -87,7 +87,7 @@ function StatisticsPage() {
     colorField: 'type',
     radius: 0.8,
     innerRadius: 0.7,
-    // 强制指定颜色：收入=绿，支出=红
+    
     scale: {
       color: {
         domain: ['收入', '支出'],
@@ -95,25 +95,25 @@ function StatisticsPage() {
       },
     },
     label: {
-      // ✅ 修复百分比：手动计算 (d.total / totalTypeAmount)
+      
       text: (d) => {
         const percent = totalTypeAmount > 0 ? d.total / totalTypeAmount : 0;
         return `${d.type} ${(percent * 100).toFixed(0)}%`;
       },
-      position: 'outside', // 标签在外部
+      position: 'outside', 
       style: {
         fontSize: 12,
         fill: token.colorTextSecondary,
         fontWeight: 'bold',
       },
-      connector: true, // 显示连接线
+      connector: true, 
     },
-    // ✅ 修复图例：新版配置方式
+    
     legend: {
       color: {
         position: 'bottom',
-        layout: { justifyContent: 'center' }, // 居中显示
-        itemLabelFill: token.colorText,       // 适配暗色模式文字
+        layout: { justifyContent: 'center' }, 
+        itemLabelFill: token.colorText,       
       },
     },
     style: {
@@ -125,11 +125,11 @@ function StatisticsPage() {
       items: [{ channel: 'y', valueFormatter: (d) => `¥${Number(d).toFixed(2)}` }]
     },
     interaction: {
-      elementHighlight: true, // 悬浮高亮
+      elementHighlight: true, 
     },
   };
 
-  // 2. 计算分类总金额
+  
   const totalCategoryAmount = categoryData.reduce((sum, item) => sum + item.total, 0);
 
   const categoryConfig = {
@@ -139,11 +139,11 @@ function StatisticsPage() {
     radius: 0.8,
     scale: {
       color: {
-        range: chartColors, // 使用你定义的颜色数组
+        range: chartColors, 
       },
     },
     label: {
-      // ✅ 修复百分比：手动计算
+      
       text: (d) => {
         const percent = totalCategoryAmount > 0 ? d.total / totalCategoryAmount : 0;
         return `${d.category} ${(percent * 100).toFixed(0)}%`;
@@ -155,7 +155,7 @@ function StatisticsPage() {
       },
       connector: true,
     },
-    // ✅ 修复图例：确保显示分类名称
+    
     legend: {
       color: {
         position: 'bottom',
@@ -180,38 +180,59 @@ function StatisticsPage() {
     data: trendData,
     xField: 'date',
     yField: 'net',
-    shapeField: 'smooth', // ✅ v2 写法：平滑曲线
+    shapeField: 'smooth',
 
-    // ✅ 样式还原：配置渐变背景和线条
     style: {
-      fill: `linear-gradient(90deg, ${token.colorBgContainer} 0%, ${token.colorPrimary} 100%)`, // 渐变填充
-      fillOpacity: 0.3,
-      stroke: token.colorPrimary, // 线条颜色
+      fill: `linear-gradient(to bottom, ${token.colorPrimary} 60%, ${token.colorBgContainer} 100%)`,
+      fillOpacity: 0.25,
+      stroke: token.colorPrimary,
       lineWidth: 2,
     },
 
-    // ✅ 坐标轴样式修复
     axis: {
       y: {
         grid: {
           line: {
-            style: { lineDash: [4, 4], stroke: token.colorBorderSecondary }
+            style: {
+              lineDash: [4, 4],
+              stroke: token.colorBorderSecondary,
+              strokeOpacity: 0.6,
+            }
           }
         }
+      },
+      
+      x: {
+        line: null,
+        tick: null,
+        
+        labelTransform: 'rotate(0)',
+        
+        labelAutoHide: true,
       }
     },
 
-    // ✅ Tooltip 完美修复：自定义显示收入、支出、净额
     tooltip: {
       title: (d) => d.date,
       items: [
-        (d) => ({ name: '收入', value: `+${d.income}`, color: token.colorSuccess }),
-        (d) => ({ name: '支出', value: `-${d.expense}`, color: token.colorError }),
-        (d) => ({ name: '净额', value: d.net, color: token.colorPrimary }),
+        (d) => ({
+          name: '收入',
+          value: `+${Number(d.income).toFixed(2)}`,
+          color: token.colorSuccess
+        }),
+        (d) => ({
+          name: '支出',
+          value: `-${Number(d.expense).toFixed(2)}`,
+          color: token.colorError
+        }),
+        (d) => ({
+          name: '净额',
+          value: `${Number(d.net).toFixed(2)}`,
+          color: token.colorPrimary
+        }),
       ],
     },
 
-    // 交互增强
     interaction: {
       tooltip: {
         marker: false,
