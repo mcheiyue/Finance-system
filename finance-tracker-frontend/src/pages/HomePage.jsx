@@ -46,7 +46,7 @@ function HomePage() {
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:8080/api/transactions');
+      const response = await axios.get('/api/transactions');
       setAllData(response.data);
       setDisplayData(response.data); 
       setSelectedRowKeys([]); 
@@ -75,7 +75,7 @@ function HomePage() {
   };
 
   const handleDelete = async (id) => {
-    try { await axios.delete(`http://localhost:8080/api/transactions/${id}`); message.success('删除成功'); loadTransactions(); } catch (error) { message.error('删除失败'); }
+    try { await axios.delete(`/api/transactions/${id}`); message.success('删除成功'); loadTransactions(); } catch (error) { message.error('删除失败'); }
   };
 
   const handleBatchDelete = () => {
@@ -85,7 +85,7 @@ function HomePage() {
       icon: <ExclamationCircleOutlined />,
       okText: '删除', okType: 'danger', cancelText: '取消',
       onOk: async () => {
-        try { await Promise.all(selectedRowKeys.map(id => axios.delete(`http://localhost:8080/api/transactions/${id}`))); message.success('批量删除成功'); loadTransactions(); } catch (e) { message.error('删除失败'); }
+        try { await Promise.all(selectedRowKeys.map(id => axios.delete(`/api/transactions/${id}`))); message.success('批量删除成功'); loadTransactions(); } catch (e) { message.error('删除失败'); }
       },
     });
   };
@@ -112,7 +112,7 @@ function HomePage() {
   const handleFinish = async (values) => {
     try {
       const payload = { ...values, timestamp: values.timestamp ? values.timestamp.toISOString() : new Date().toISOString() };
-      await axios.post('http://localhost:8080/api/transactions', payload);
+      await axios.post('/api/transactions', payload);
       message.success('保存成功'); setModalVisible(false); form.resetFields(); loadTransactions();
     } catch (e) { message.error(e.message); }
   };

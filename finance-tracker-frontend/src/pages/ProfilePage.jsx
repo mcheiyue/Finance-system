@@ -15,7 +15,7 @@ export default function ProfilePage() {
   const loadProfile = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:8080/api/users/me');
+      const res = await axios.get('/api/users/me');
       setUserInfo(res.data);
     } catch (err) {
       message.error('加载用户信息失败');
@@ -29,7 +29,7 @@ export default function ProfilePage() {
   }, []);
   const handlePasswordChange = async (values) => {
     try {
-      await axios.post('http://localhost:8080/api/users/password', values);
+      await axios.post('/api/users/password', values);
       message.success('密码修改成功！下次登录请使用新密码。');
       form.resetFields();
     } catch (err) {
