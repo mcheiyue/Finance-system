@@ -3,7 +3,7 @@ import {
   Tabs, Spin, Alert, Card, Button, Modal, Form, Select, InputNumber,
   message, Empty, Row, Col, theme, Space
 } from 'antd';
-import { Pie, Line } from '@ant-design/plots';
+import { Pie, Area } from '@ant-design/plots';
 import {
   SettingOutlined, PieChartOutlined, LineChartOutlined,
   ArrowUpOutlined, ArrowDownOutlined, WalletOutlined
@@ -78,65 +78,145 @@ function StatisticsPage() {
   const darkMonoColors = ['#F9FAFB', '#E5E7EB', '#D1D5DB', '#9CA3AF', '#6B7280', '#4B5563'];
   const chartColors = isDarkMode ? darkMonoColors : monoColors;
 
+  // 1. 先计算总金额，用于手动计算百分比
+  const totalTypeAmount = typeData.reduce((sum, item) => sum + item.total, 0);
+
   const typeConfig = {
     data: typeData,
     angleField: 'total',
     colorField: 'type',
     radius: 0.8,
     innerRadius: 0.7,
-    color: ({ type }) => type === '收入' ? token.colorSuccess : token.colorError,
-    statistic: null,
-    label: { type: 'outer', content: '{name} {percentage}', style: { fontSize: 12, fill: token.colorTextSecondary } },
-    interactions: [{ type: 'element-active' }],
-    legend: { position: 'bottom', itemName: { style: { fill: token.colorText } } },
-    pieStyle: { lineWidth: 2, stroke: token.colorBgContainer },
-    tooltip: { formatter: (datum) => ({ name: datum.type, value: `¥${datum.total.toFixed(2)}` }) },
+    // 强制指定颜色：收入=绿，支出=红
+    scale: {
+      color: {
+        domain: ['收入', '支出'],
+        range: [token.colorSuccess, token.colorError],
+      },
+    },
+    label: {
+      // ✅ 修复百分比：手动计算 (d.total / totalTypeAmount)
+      text: (d) => {
+        const percent = totalTypeAmount > 0 ? d.total / totalTypeAmount : 0;
+        return `${d.type} ${(percent * 100).toFixed(0)}%`;
+      },
+      position: 'outside', // 标签在外部
+      style: {
+        fontSize: 12,
+        fill: token.colorTextSecondary,
+        fontWeight: 'bold',
+      },
+      connector: true, // 显示连接线
+    },
+    // ✅ 修复图例：新版配置方式
+    legend: {
+      color: {
+        position: 'bottom',
+        layout: { justifyContent: 'center' }, // 居中显示
+        itemLabelFill: token.colorText,       // 适配暗色模式文字
+      },
+    },
+    style: {
+      lineWidth: 2,
+      stroke: token.colorBgContainer,
+    },
+    tooltip: {
+      title: 'type',
+      items: [{ channel: 'y', valueFormatter: (d) => `¥${Number(d).toFixed(2)}` }]
+    },
+    interaction: {
+      elementHighlight: true, // 悬浮高亮
+    },
   };
+
+  // 2. 计算分类总金额
+  const totalCategoryAmount = categoryData.reduce((sum, item) => sum + item.total, 0);
 
   const categoryConfig = {
     data: categoryData,
     angleField: 'total',
     colorField: 'category',
     radius: 0.8,
-    color: chartColors,
-    label: { type: 'outer', content: '{name} {percentage}', autoRotate: false, style: { fill: token.colorTextSecondary } },
-    interactions: [{ type: 'element-active' }],
-    legend: { position: 'bottom', flipPage: false, itemName: { style: { fill: token.colorText } } },
-    pieStyle: { lineWidth: 2, stroke: token.colorBgContainer },
-    tooltip: { formatter: (datum) => ({ name: datum.category, value: `¥${datum.total.toFixed(2)}` }) },
+    scale: {
+      color: {
+        range: chartColors, // 使用你定义的颜色数组
+      },
+    },
+    label: {
+      // ✅ 修复百分比：手动计算
+      text: (d) => {
+        const percent = totalCategoryAmount > 0 ? d.total / totalCategoryAmount : 0;
+        return `${d.category} ${(percent * 100).toFixed(0)}%`;
+      },
+      position: 'outside',
+      autoRotate: false,
+      style: {
+        fill: token.colorTextSecondary,
+      },
+      connector: true,
+    },
+    // ✅ 修复图例：确保显示分类名称
+    legend: {
+      color: {
+        position: 'bottom',
+        layout: { justifyContent: 'center' },
+        itemLabelFill: token.colorText,
+      },
+    },
+    style: {
+      lineWidth: 2,
+      stroke: token.colorBgContainer,
+    },
+    tooltip: {
+      title: 'category',
+      items: [{ channel: 'y', valueFormatter: (d) => `¥${Number(d).toFixed(2)}` }]
+    },
+    interaction: {
+      elementHighlight: true,
+    },
   };
 
   const trendConfig = {
     data: trendData,
     xField: 'date',
     yField: 'net',
-    smooth: true,
-    color: token.colorPrimary,
-    areaStyle: { fill: `l(270) 0:${token.colorBgContainer} 0.5:${token.colorPrimary} 1:${token.colorPrimary}`, fillOpacity: 0.1 },
-    point: { size: 3, shape: 'circle' },
-    yAxis: { grid: { line: { style: { lineDash: [2, 4], stroke: token.colorBorderSecondary } } } },
-    tooltip: {
-      showContent: true,
-      domStyles: {
-        'g2-tooltip': {
-          backgroundColor: token.colorBgElevated,
-          color: token.colorText,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          border: `1px solid ${token.colorBorderSecondary}`,
-          padding: 0, borderRadius: '8px', opacity: 0.95,
-        },
-      },
-      customContent: (title, items) => {
-        if (!items?.length) return '';
-        const d = items[0].data;
-        return `<div style="padding:12px; min-width:160px;">
-          <div style="margin-bottom:8px;font-weight:bold;color:${token.colorTextSecondary}">${title}</div>
-          <div style="display:flex;justify-content:space-between;"><span style="color:${token.colorSuccess}">收入</span><b class="font-mono">+${d.income}</b></div>
-          <div style="display:flex;justify-content:space-between;"><span style="color:${token.colorError}">支出</span><b class="font-mono">-${d.expense}</b></div>
-          <div style="border-top:1px solid ${token.colorBorderSecondary};margin-top:6px;padding-top:6px;font-weight:bold;display:flex;justify-content:space-between;"><span>净额</span><span class="font-mono">${d.net}</span></div>
-        </div>`;
+    shapeField: 'smooth', // ✅ v2 写法：平滑曲线
+
+    // ✅ 样式还原：配置渐变背景和线条
+    style: {
+      fill: `linear-gradient(90deg, ${token.colorBgContainer} 0%, ${token.colorPrimary} 100%)`, // 渐变填充
+      fillOpacity: 0.3,
+      stroke: token.colorPrimary, // 线条颜色
+      lineWidth: 2,
+    },
+
+    // ✅ 坐标轴样式修复
+    axis: {
+      y: {
+        grid: {
+          line: {
+            style: { lineDash: [4, 4], stroke: token.colorBorderSecondary }
+          }
+        }
       }
-    }
+    },
+
+    // ✅ Tooltip 完美修复：自定义显示收入、支出、净额
+    tooltip: {
+      title: (d) => d.date,
+      items: [
+        (d) => ({ name: '收入', value: `+${d.income}`, color: token.colorSuccess }),
+        (d) => ({ name: '支出', value: `-${d.expense}`, color: token.colorError }),
+        (d) => ({ name: '净额', value: d.net, color: token.colorPrimary }),
+      ],
+    },
+
+    // 交互增强
+    interaction: {
+      tooltip: {
+        marker: false,
+      },
+    },
   };
 
   const StatCard = ({ title, value, color, icon }) => (
@@ -174,7 +254,7 @@ function StatisticsPage() {
     {
       key: '2',
       label: <span><LineChartOutlined /> 资产趋势</span>,
-      children: <div style={{ height: 400, padding: '0 20px' }}><Line {...trendConfig} theme={isDarkMode ? 'dark' : 'light'} /></div>
+      children: <div style={{ height: 400, padding: '0 20px' }}><Area {...trendConfig} theme={isDarkMode ? 'dark' : 'light'} /></div>
     }
   ];
 
