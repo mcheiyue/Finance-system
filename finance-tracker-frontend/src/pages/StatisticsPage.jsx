@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Tabs, Spin, Alert, Card, Button, Modal, Form, Select, InputNumber,
   message, Empty, Row, Col, theme, Space
@@ -80,12 +80,13 @@ function StatisticsPage() {
 
   const totalTypeAmount = typeData.reduce((sum, item) => sum + item.total, 0);
 
-  const typeConfig = {
+  const typeConfig = useMemo(() => ({
     data: typeData,
     angleField: 'total',
     colorField: 'type',
     radius: 0.8,
     innerRadius: 0.5,
+    autoFit: true,
     scale: {
       color: {
         domain: ['收入', '支出'],
@@ -105,12 +106,13 @@ function StatisticsPage() {
       },
       connector: true,
     },
-
     legend: {
       color: {
         position: 'bottom',
-        layout: { justifyContent: 'center' },
+        layout: 'horizontal',
+        itemSpacing: 8,
         itemLabelFill: token.colorText,
+        itemMarkerFill: token.colorText,
       },
     },
     style: {
@@ -120,7 +122,8 @@ function StatisticsPage() {
     state: {
       active: {
         lineWidth: 2,
-        stroke: token.colorText, 
+        stroke: token.colorText,
+        lineJoin: 'round',
       },
     },
     tooltip: {
@@ -130,15 +133,16 @@ function StatisticsPage() {
     interaction: {
       elementHighlight: true,
     },
-  };
+  }), [typeData, token.colorSuccess, token.colorError, token.colorText, token.colorTextSecondary, token.colorBgContainer, totalTypeAmount]);
 
   const totalCategoryAmount = categoryData.reduce((sum, item) => sum + item.total, 0);
 
-  const categoryConfig = {
+  const categoryConfig = useMemo(() => ({
     data: categoryData,
     angleField: 'total',
     colorField: 'category',
     radius: 0.8,
+    autoFit: true,
     scale: {
       color: {
         range: chartColors,
@@ -159,12 +163,13 @@ function StatisticsPage() {
         { type: 'overlapDodgeY' },
       ],
     },
-
     legend: {
       color: {
         position: 'bottom',
-        layout: { justifyContent: 'center' },
+        layout: 'horizontal',
+        itemSpacing: 8,
         itemLabelFill: token.colorText,
+        itemMarkerFill: token.colorText,
       },
     },
     style: {
@@ -173,8 +178,7 @@ function StatisticsPage() {
     },
     state: {
       active: {
-        lineWidth: 2,
-        stroke: token.colorText, 
+        offset: 5,
       },
     },
     tooltip: {
@@ -184,7 +188,7 @@ function StatisticsPage() {
     interaction: {
       elementHighlight: true,
     },
-  };
+  }), [categoryData, chartColors, token.colorText, token.colorTextSecondary, token.colorBgContainer, totalCategoryAmount]);
 
   const trendConfig = {
     data: trendData,
