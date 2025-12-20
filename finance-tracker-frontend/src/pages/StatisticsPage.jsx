@@ -109,10 +109,9 @@ function StatisticsPage() {
     legend: {
       color: {
         position: 'bottom',
-        layout: 'horizontal',
+        layout: { justifyContent: 'center' },
         itemSpacing: 8,
         itemLabelFill: token.colorText,
-        itemMarkerFill: token.colorText,
       },
     },
     style: {
@@ -127,8 +126,18 @@ function StatisticsPage() {
       },
     },
     tooltip: {
-      title: 'type',
-      items: [{ channel: 'y', valueFormatter: (d) => `¥${Number(d).toFixed(2)}` }]
+      title: (d) => d.type,
+      items: [
+        (d) => ({
+          name: '金额',
+          value: `¥${Number(d.total).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`,
+          color: d.type === '收入' ? token.colorSuccess : token.colorError
+        }),
+        (d) => ({
+          name: '占比',
+          value: `${(d.total / totalTypeAmount * 100).toFixed(1)}%`,
+        }),
+      ],
     },
     interaction: {
       elementHighlight: true,
@@ -169,7 +178,6 @@ function StatisticsPage() {
         layout: 'horizontal',
         itemSpacing: 8,
         itemLabelFill: token.colorText,
-        itemMarkerFill: token.colorText,
       },
     },
     style: {
@@ -182,8 +190,17 @@ function StatisticsPage() {
       },
     },
     tooltip: {
-      title: 'category',
-      items: [{ channel: 'y', valueFormatter: (d) => `¥${Number(d).toFixed(2)}` }]
+      title: (d) => d.category,
+      items: [
+        (d) => ({
+          name: '金额',
+          value: `¥${Number(d.total).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`,
+        }),
+        (d) => ({
+          name: '占比',
+          value: `${(d.total / totalCategoryAmount * 100).toFixed(1)}%`,
+        }),
+      ],
     },
     interaction: {
       elementHighlight: true,
