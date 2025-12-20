@@ -78,7 +78,6 @@ function StatisticsPage() {
   const darkMonoColors = ['#F9FAFB', '#E5E7EB', '#D1D5DB', '#9CA3AF', '#6B7280', '#4B5563'];
   const chartColors = isDarkMode ? darkMonoColors : monoColors;
 
-  
   const totalTypeAmount = typeData.reduce((sum, item) => sum + item.total, 0);
 
   const typeConfig = {
@@ -98,36 +97,41 @@ function StatisticsPage() {
         const percent = totalTypeAmount > 0 ? d.total / totalTypeAmount : 0;
         return `${d.type} ${(percent * 100).toFixed(0)}%`;
       },
-      position: 'outside', 
+      position: 'outside',
       style: {
         fontSize: 12,
         fill: token.colorTextSecondary,
         fontWeight: 'bold',
       },
-      connector: true, 
+      connector: true,
     },
-    
+
     legend: {
       color: {
         position: 'bottom',
-        layout: { justifyContent: 'center' }, 
-        itemLabelFill: token.colorText,       
+        layout: { justifyContent: 'center' },
+        itemLabelFill: token.colorText,
       },
     },
     style: {
       lineWidth: 2,
       stroke: token.colorBgContainer,
     },
+    state: {
+      active: {
+        lineWidth: 2,
+        stroke: token.colorText, 
+      },
+    },
     tooltip: {
       title: 'type',
       items: [{ channel: 'y', valueFormatter: (d) => `¥${Number(d).toFixed(2)}` }]
     },
     interaction: {
-      elementHighlight: true, 
+      elementHighlight: true,
     },
   };
 
-  
   const totalCategoryAmount = categoryData.reduce((sum, item) => sum + item.total, 0);
 
   const categoryConfig = {
@@ -137,7 +141,7 @@ function StatisticsPage() {
     radius: 0.8,
     scale: {
       color: {
-        range: chartColors, 
+        range: chartColors,
       },
     },
     label: {
@@ -152,10 +156,10 @@ function StatisticsPage() {
       },
       connector: true,
       transform: [
-        { type: 'overlapDodgeY' }, 
+        { type: 'overlapDodgeY' },
       ],
     },
-    
+
     legend: {
       color: {
         position: 'bottom',
@@ -166,6 +170,12 @@ function StatisticsPage() {
     style: {
       lineWidth: 2,
       stroke: token.colorBgContainer,
+    },
+    state: {
+      active: {
+        lineWidth: 2,
+        stroke: token.colorText, 
+      },
     },
     tooltip: {
       title: 'category',
@@ -201,13 +211,12 @@ function StatisticsPage() {
           }
         }
       },
-      
       x: {
         line: null,
         tick: null,
-        
+
         labelTransform: 'rotate(0)',
-        
+
         labelAutoHide: true,
       }
     },
@@ -232,7 +241,6 @@ function StatisticsPage() {
         }),
       ],
     },
-
     interaction: {
       tooltip: {
         marker: false,
@@ -260,14 +268,14 @@ function StatisticsPage() {
         <Row gutter={[48, 24]}>
           <Col xs={24} lg={12}>
             <div style={{ textAlign: 'center', marginBottom: 16, fontWeight: 'bold', color: token.colorTextSecondary }}>收支类型</div>
-            <div style={{ height: 350 }}>{typeData.length > 0 ? <Pie {...typeConfig} theme={isDarkMode ? 'dark' : 'light'} /> : <Empty />}</div>
+            <div style={{ height: 350 }}>{typeData.length > 0 ? <Pie {...typeConfig} theme={isDarkMode ? 'dark' : 'light'} key={isDarkMode ? 'dark' : 'light'} /> : <Empty />}</div>
           </Col>
           <Col xs={24} lg={12}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, gap: 10 }}>
               <span style={{ fontWeight: 'bold', color: token.colorTextSecondary }}>分类占比</span>
               <Select defaultValue="expense" size="small" onChange={val => loadCategoryStats(val)} options={[{ value: 'expense', label: '支出' }, { value: 'income', label: '收入' }]} />
             </div>
-            <div style={{ height: 350 }}>{categoryData.length > 0 ? <Pie {...categoryConfig} theme={isDarkMode ? 'dark' : 'light'} /> : <Empty />}</div>
+            <div style={{ height: 350 }}>{categoryData.length > 0 ? <Pie {...categoryConfig} theme={isDarkMode ? 'dark' : 'light'} key={isDarkMode ? 'dark' : 'light'} /> : <Empty />}</div>
           </Col>
         </Row>
       )
@@ -280,7 +288,7 @@ function StatisticsPage() {
   ];
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' , marginTop: 24}}>
+    <div style={{ maxWidth: 1000, margin: '0 auto', marginTop: 24 }}>
       <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12}><StatCard title="总收入" value={summary.totalIncome} color={token.colorSuccess} icon={<ArrowUpOutlined />} /></Col>
         <Col xs={24} sm={12}><StatCard title="总支出" value={summary.totalExpense} color={token.colorError} icon={<ArrowDownOutlined />} /></Col>
