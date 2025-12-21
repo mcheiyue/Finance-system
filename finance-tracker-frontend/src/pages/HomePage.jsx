@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Button, Table, Modal, Form, InputNumber, Select, Radio, Input,
   message, Spin, Card, Tag, Tooltip, Popconfirm, Row, Col, Space,
-  DatePicker, theme, Typography, Avatar, App, Grid, Pagination, Drawer
+  DatePicker, theme, Typography, Avatar, App, Grid, Pagination, Drawer, Alert
 } from 'antd';
 import {
   DeleteOutlined, SearchOutlined, ReloadOutlined, DownloadOutlined, ArrowRightOutlined,
@@ -48,20 +48,22 @@ function HomePage() {
     { role: 'ai', content: '您好！我是您的 AI 财务助手。您可以尝试对我描述一笔消费，或者让我分析当前的账单。' }
   ]);
 
+  const [configModalVisible, setConfigModalVisible] = useState(false);
+  const [aiConfig, setAiConfig] = useState(() => {
+    // 初始化时从 localStorage 读取，如果没有则使用默认值
+    const saved = localStorage.getItem('ai_chat_config');
+    return saved ? JSON.parse(saved) : {
+      apiKey: '',
+      baseUrl: 'https://api.openai.com/v1',
+      model: 'gpt-3.5-turbo'
+    };
+  });
+
+  const [configForm] = Form.useForm();
+
   const [form] = Form.useForm();
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
-
-  const loadTransactions = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get('/api/transactions');
-      setAllData(response.data);
-      setDisplayData(response.data);
-      setSelectedRowKeys([]);
-    } catch (error) { message.error(error.message); }
-    finally { setLoading(false); }
-  };
 
   useEffect(() => { loadTransactions(); }, []);
 
@@ -77,6 +79,26 @@ function HomePage() {
     setDisplayData(result);
     if (searchText || filterType !== 'all' || startDate || endDate) setCurrentPage(1);
   }, [allData, searchText, filterType, startDate, endDate]);
+
+
+  const handleSaveConfig = (values) => {
+    setAiConfig(values);
+    localStorage.setItem('ai_chat_config', JSON.stringify(values));
+    message.success('AI 配置已本地保存');
+    setConfigModalVisible(false);
+  };
+
+
+  const loadTransactions = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get('/api/transactions');
+      setAllData(response.data);
+      setDisplayData(response.data);
+      setSelectedRowKeys([]);
+    } catch (error) { message.error(error.message); }
+    finally { setLoading(false); }
+  };
 
   const handleResetSearch = () => {
     setSearchText(''); setFilterType('all'); setStartDate(null); setEndDate(null);
@@ -369,6 +391,46 @@ function HomePage() {
         </Form>
       </Modal>
 
+      <Modal
+        title="AI 助手配置 (仅本地存储)"
+        open={configModalVisible}
+        onCancel={() => setConfigModalVisible(false)}
+        onOk={() => configForm.submit()}
+        okText="保存"
+        cancelText="取消"
+        zIndex={1200} // 确保比 Drawer (1100) 更高
+      >
+        <Form
+          form={configForm}
+          layout="vertical"
+          initialValues={aiConfig}
+          onFinish={handleSaveConfig}
+        >
+          <Form.Item
+            label="API Key"
+            name="apiKey"
+            rules={[{ required: true, message: '请输入 API Key' }]}
+            tooltip="密钥仅存在您的浏览器缓存中"
+          >
+            <Input.Password placeholder="sk-..." />
+          </Form.Item>
+          <Form.Item
+            label="Base URL"
+            name="baseUrl"
+            rules={[{ required: true }]}
+          >
+            <Input placeholder="例如 https://api.openai.com/v1" />
+          </Form.Item>
+          <Form.Item
+            label="模型名称 (Model)"
+            name="model"
+            rules={[{ required: true }]}
+          >
+            <Input placeholder="例如 gpt-3.5-turbo 或 deepseek-chat" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
       <Drawer
         title={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -377,7 +439,10 @@ function HomePage() {
               <Button
                 type="text"
                 icon={<SettingOutlined />}
-                onClick={() => message.info('第二阶段将实现配置功能')}
+                onClick={() => {
+                  configForm.setFieldsValue(aiConfig);
+                  setConfigModalVisible(true);
+                }}
               />
               {/* 移动端增加显式的关闭文字或按钮（可选） */}
               {!screens.md && (
@@ -404,6 +469,16 @@ function HomePage() {
           }
         }}
       >
+        {!aiConfig.apiKey && (
+          <div style={{ marginBottom: 20 }}>
+            <Alert
+              message="未检测到配置"
+              description="请点击右上角齿轮图标配置您的 API Key 以启用 AI 功能。"
+              type="warning"
+              showIcon
+            />
+          </div>
+        )}
         {/* 消息展示区：增加对触摸滚动的支持 */}
         <div style={{
           flex: 1,
@@ -454,6 +529,8 @@ function HomePage() {
           </Space.Compact>
         </div>
       </Drawer>
+
+
     </div>
   );
 }
