@@ -492,3 +492,14 @@ div {
     padding: 12px !important;
   }
 }
+
+.markdown-content p {
+  margin-bottom: 8px;
+}
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+.markdown-content ul, .markdown-content ol {
+  padding-left: 20px;
+  margin-bottom: 8px;
+}

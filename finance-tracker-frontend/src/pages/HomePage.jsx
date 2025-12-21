@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import ReactMarkdown from 'react-markdown';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants';
 
 const { Option } = Select;
@@ -27,7 +28,7 @@ const CATEGORY_ICONS = {
 };
 
 function HomePage() {
-  const { modal } = App.useApp();
+  const { modal, message: msgApi } = App.useApp();
   const [allData, setAllData] = useState([]);
   const [displayData, setDisplayData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -59,6 +60,77 @@ function HomePage() {
     };
   });
 
+  const callAiApi = async (userMessage) => {
+    if (!aiConfig.apiKey) {
+      message.error('请先配置 API Key');
+      return;
+    }
+
+    const aiInstance = axios.create();
+
+    // 1. 数据脱敏
+    const sanitizedData = displayData.map(item => ({
+      type: item.type === 'income' ? '收入' : '支出',
+      category: item.category,
+      amount: item.amount,
+      description: item.description,
+      date: dayjs(item.timestamp).format('YYYY-MM-DD')
+    }));
+
+    const systemPrompt = `
+你是一个毒舌财务助手。用户数据：${JSON.stringify(sanitizedData.slice(0, 30))}
+
+# 记账指令
+1. 仅针对用户【最新发送】的一条消息提取动作。
+2. 如果用户提到的内容已在历史记录中记录过，请勿重复生成 ACTION。
+3. 必须严格按以下格式输出，不要有空格：
+[ACTION]{"type":"expense","amount":0,"category":"分类","description":"备注"}[/ACTION]
+
+# 约束
+1. 必须使用系统支持的分类：
+   支出：${EXPENSE_CATEGORIES.join(',')}
+   收入：${INCOME_CATEGORIES.join(',')}
+2. 请根据描述自动匹配最准确的分类。
+`;
+
+    try {
+      // 修改 callAiApi 内部的消息构造逻辑
+      const formattedMessages = [
+        { role: 'system', content: systemPrompt },
+        ...messages.slice(-5).map(m => ({
+          role: m.role === 'ai' || m.role === 'assistant' ? 'assistant' : 'user',
+          // 关键：发送前剔除历史消息中的 [ACTION] 内容，只留纯文本
+          content: String(m.content).replace(/\[ACTION\][\s\S]*?\[\/ACTION\]/g, '').trim()
+        })),
+        { role: 'user', content: userMessage }
+      ];
+
+      const response = await aiInstance.post(`${aiConfig.baseUrl}/chat/completions`, {
+        model: aiConfig.model,
+        messages: formattedMessages, // 使用格式化后的消息
+        temperature: 0.7
+      }, {
+        headers: {
+          'Authorization': `Bearer ${aiConfig.apiKey.trim()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      return response.data.choices[0].message.content;
+    } catch (error) {
+      // 3. 增强错误日志捕获，防止 undefined 报错
+      const errorDetail = error.response?.data || error.message;
+      console.error('AI API 详细错误:', errorDetail);
+
+      // 这里的错误提取逻辑要更健壮
+      const errorMsg = error.response?.data?.error?.message
+        || error.response?.data?.message
+        || '请求参数错误(400)，请检查模型名称和格式';
+
+      throw new Error(errorMsg);
+    }
+  };
+
   const [configForm] = Form.useForm();
 
   const [form] = Form.useForm();
@@ -80,6 +152,48 @@ function HomePage() {
     if (searchText || filterType !== 'all' || startDate || endDate) setCurrentPage(1);
   }, [allData, searchText, filterType, startDate, endDate]);
 
+  const handleSendMessage = async () => {
+    if (!chatInput.trim()) return;
+    const userMsg = { role: 'user', content: chatInput };
+    setMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setLoading(true);
+
+    try {
+      const aiResponse = await callAiApi(chatInput);
+
+      // 1. 使用更包容的正则：允许标签前后有空格
+      const actionRegex = /\[ACTION\]\s*(\{[\s\S]*?\})\s*\[\/ACTION\]/;
+      const match = aiResponse.match(actionRegex);
+
+      if (match) {
+        try {
+          const actionData = JSON.parse(match[1]);
+          // 2. 无论解析是否成功，显示给用户的消息必须剔除 [ACTION] 源码
+          const cleanText = aiResponse.replace(actionRegex, '').trim();
+          setMessages(prev => [...prev, { role: 'assistant', content: cleanText || '好的，请确认账单详情。' }]);
+
+          // 3. 动作联动
+          form.setFieldsValue({
+            ...actionData,
+            timestamp: dayjs()
+          });
+          setCurrentType(actionData.type); // 必须手动触发 type 状态更新以切换 Radio
+          setModalVisible(true);
+          msgApi.success('AI 已预填账单');
+        } catch (e) {
+          // 如果 JSON 解析报错，清理标签后显示文本
+          setMessages(prev => [...prev, { role: 'assistant', content: aiResponse.replace(/\[ACTION\][\s\S]*?\[\/ACTION\]/g, '') }]);
+        }
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+      }
+    } catch (e) {
+      msgApi.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSaveConfig = (values) => {
     setAiConfig(values);
@@ -484,28 +598,37 @@ function HomePage() {
           flex: 1,
           overflowY: 'auto',
           padding: '20px',
-          background: token.colorBgLayout,
-          WebkitOverflowScrolling: 'touch' // 优化 iOS 滚动
+          // 使用主题 Token 确保背景色随深浅色模式切换
+          background: token.colorBgLayout
         }}>
-          {messages.map((msg, index) => (
-            <div key={index} style={{
-              marginBottom: '16px',
-              textAlign: msg.role === 'user' ? 'right' : 'left'
-            }}>
-              <div style={{
-                display: 'inline-block',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                maxWidth: '85%',
-                background: msg.role === 'user' ? token.colorPrimary : token.colorBgContainer,
-                color: msg.role === 'user' ? '#fff' : token.colorText,
-                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                wordBreak: 'break-word' // 防止长文本溢出
+          {messages.map((msg, index) => {
+            const isUser = msg.role === 'user';
+            return (
+              <div key={index} style={{
+                marginBottom: '16px',
+                textAlign: isUser ? 'right' : 'left'
               }}>
-                {msg.content}
+                <div style={{
+                  display: 'inline-block',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  maxWidth: '90%',
+                  background: isUser ? '#141414' : token.colorBgElevated,
+                  color: isUser ? '#ffffff' : token.colorText,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  border: isUser ? '1px solid #333' : '1px solid transparent'
+                }}>
+                  {isUser ? (
+                    msg.content
+                  ) : (
+                    <div className="markdown-content">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* 输入区：在移动端增加底部安全区间距 */}
@@ -516,15 +639,17 @@ function HomePage() {
         }}>
           <Space.Compact style={{ width: '100%' }}>
             <Input
-              placeholder="在此输入..."
+              placeholder="问问 AI，例如：我最近花钱多吗？"
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
-              onPressEnter={() => message.info('第三阶段将实现发送功能')}
+              onPressEnter={handleSendMessage} // 绑定回车
+              disabled={loading}
             />
             <Button
               type="primary"
-              icon={<SendOutlined />}
-              onClick={() => message.info('发送功能待开发')}
+              icon={loading ? <Spin size="small" /> : <SendOutlined />}
+              onClick={handleSendMessage} // 绑定点击
+              disabled={loading}
             />
           </Space.Compact>
         </div>
