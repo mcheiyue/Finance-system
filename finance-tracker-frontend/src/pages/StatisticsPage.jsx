@@ -108,9 +108,10 @@ function StatisticsPage() {
     },
     legend: {
       color: {
-        position: 'bottom',
-        layout: { justifyContent: 'center' },
+        position: 'right',
+        layout: { justifyContent: 'flex-start' },
         itemLabelFill: token.colorText,
+        maxRows: 10,
       },
     },
     style: {
@@ -151,6 +152,7 @@ function StatisticsPage() {
     colorField: 'category',
     radius: 0.8,
     autoFit: true,
+    appendPadding: [0, 0, 60, 0],
     scale: {
       color: {
         range: chartColors,
@@ -175,10 +177,10 @@ function StatisticsPage() {
       color: {
         position: 'bottom',
         layout: 'horizontal',
-        cols: 4,
-        maxRows: 2,
         itemSpacing: 8,
         itemLabelFill: token.colorText,
+        cols: 4,
+        maxRows: 2,
       },
     },
     style: {
