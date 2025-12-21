@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import {
   Button, Table, Modal, Form, InputNumber, Select, Radio, Input,
   message, Spin, Card, Tag, Tooltip, Popconfirm, Row, Col, Space,
-  DatePicker, theme, Typography, Avatar, App, Grid, Pagination
+  DatePicker, theme, Typography, Avatar, App, Grid, Pagination, Drawer
 } from 'antd';
 import {
   DeleteOutlined, SearchOutlined, ReloadOutlined, DownloadOutlined, ArrowRightOutlined,
   AppstoreOutlined, CoffeeOutlined, CarOutlined, ShoppingOutlined,
   SkinOutlined, HomeOutlined, MedicineBoxOutlined, ReadOutlined,
   BankOutlined, RestOutlined, GiftOutlined, PlusOutlined,
-  QuestionCircleOutlined, ExclamationCircleOutlined, DollarOutlined, EditOutlined
+  QuestionCircleOutlined, ExclamationCircleOutlined, DollarOutlined, EditOutlined,
+  RobotOutlined, SettingOutlined, SendOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -40,6 +41,12 @@ function HomePage() {
   const [endDate, setEndDate] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [editingId, setEditingId] = useState(null);
+
+  const [aiDrawerVisible, setAiDrawerVisible] = useState(false); // 控制 AI 抽屉显示
+  const [chatInput, setChatInput] = useState(''); // 聊天输入框内容
+  const [messages, setMessages] = useState([
+    { role: 'ai', content: '您好！我是您的 AI 财务助手。您可以尝试对我描述一笔消费，或者让我分析当前的账单。' }
+  ]);
 
   const [form] = Form.useForm();
   const { token } = theme.useToken();
@@ -222,7 +229,22 @@ function HomePage() {
         </Row>
       </Card>
 
-      <Card variant="borderless" title={<Space><AppstoreOutlined /><span>账单明细</span></Space>} extra={<Space>{selectedRowKeys.length > 0 && (<Button danger icon={<DeleteOutlined />} onClick={handleBatchDelete}>删除</Button>)}<Button type="primary" icon={<PlusOutlined />} onClick={showModal}>记一笔</Button></Space>}>
+      <Card variant="borderless" title={<Space><AppstoreOutlined /><span>账单明细</span></Space>}
+        extra={
+          <Space>
+            {selectedRowKeys.length > 0 && (
+              <Button danger icon={<DeleteOutlined />} onClick={handleBatchDelete}>删除</Button>
+            )}
+            <Button
+              icon={<RobotOutlined />}
+              onClick={() => setAiDrawerVisible(true)}
+              style={{ borderColor: token.colorPrimary, color: token.colorPrimary }}
+            >
+              AI 助手
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={showModal}>记一笔</Button>
+          </Space>
+        }>
         <Spin spinning={loading}>
           {!screens.md ? (
             <div>
@@ -346,6 +368,92 @@ function HomePage() {
           <Form.Item><Button type="primary" htmlType="submit" block size="large" style={{ marginTop: 10 }}>保存</Button></Form.Item>
         </Form>
       </Modal>
+
+      <Drawer
+        title={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span><RobotOutlined /> AI 财务助手</span>
+            <Space>
+              <Button
+                type="text"
+                icon={<SettingOutlined />}
+                onClick={() => message.info('第二阶段将实现配置功能')}
+              />
+              {/* 移动端增加显式的关闭文字或按钮（可选） */}
+              {!screens.md && (
+                <Button type="text" onClick={() => setAiDrawerVisible(false)}>关闭</Button>
+              )}
+            </Space>
+          </div>
+        }
+        placement="right"
+        onClose={() => setAiDrawerVisible(false)}
+        open={aiDrawerVisible}
+        // 关键修复 1：设置比导航栏更高的层级，确保不被遮挡
+        zIndex={1100}
+        // 关键修复 2：响应式宽度切换
+        width={screens.md ? 400 : '100%'}
+        // 移除默认关闭按钮（因为我们在 title 里自定义了，或者保留默认）
+        closable={screens.md}
+        styles={{
+          body: {
+            display: 'flex',
+            flexDirection: 'column',
+            padding: 0,
+            height: '100%' // 确保在手机端撑开
+          }
+        }}
+      >
+        {/* 消息展示区：增加对触摸滚动的支持 */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '20px',
+          background: token.colorBgLayout,
+          WebkitOverflowScrolling: 'touch' // 优化 iOS 滚动
+        }}>
+          {messages.map((msg, index) => (
+            <div key={index} style={{
+              marginBottom: '16px',
+              textAlign: msg.role === 'user' ? 'right' : 'left'
+            }}>
+              <div style={{
+                display: 'inline-block',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                maxWidth: '85%',
+                background: msg.role === 'user' ? token.colorPrimary : token.colorBgContainer,
+                color: msg.role === 'user' ? '#fff' : token.colorText,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                wordBreak: 'break-word' // 防止长文本溢出
+              }}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 输入区：在移动端增加底部安全区间距 */}
+        <div style={{
+          padding: screens.md ? '16px' : '16px 16px 32px 16px',
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+          background: token.colorBgContainer
+        }}>
+          <Space.Compact style={{ width: '100%' }}>
+            <Input
+              placeholder="在此输入..."
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onPressEnter={() => message.info('第三阶段将实现发送功能')}
+            />
+            <Button
+              type="primary"
+              icon={<SendOutlined />}
+              onClick={() => message.info('发送功能待开发')}
+            />
+          </Space.Compact>
+        </div>
+      </Drawer>
     </div>
   );
 }
