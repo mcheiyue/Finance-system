@@ -110,7 +110,6 @@ function StatisticsPage() {
       color: {
         position: 'bottom',
         layout: { justifyContent: 'center' },
-        itemSpacing: 8,
         itemLabelFill: token.colorText,
       },
     },
@@ -176,6 +175,8 @@ function StatisticsPage() {
       color: {
         position: 'bottom',
         layout: 'horizontal',
+        cols: 4,
+        maxRows: 2,
         itemSpacing: 8,
         itemLabelFill: token.colorText,
       },
@@ -186,7 +187,8 @@ function StatisticsPage() {
     },
     state: {
       active: {
-        offset: 5,
+        lineWidth: 2,
+        stroke: token.colorText,
       },
     },
     tooltip: {
@@ -289,14 +291,18 @@ function StatisticsPage() {
         <Row gutter={[48, 24]}>
           <Col xs={24} lg={12}>
             <div style={{ textAlign: 'center', marginBottom: 16, fontWeight: 'bold', color: token.colorTextSecondary }}>收支类型</div>
-            <div style={{ height: 350 }}>{typeData.length > 0 ? <Pie {...typeConfig} theme={isDarkMode ? 'dark' : 'light'} key={isDarkMode ? 'dark' : 'light'} /> : <Empty />}</div>
+            <div style={{ height: 350, width: '100%' }}>
+              {typeData.length > 0 ? <Pie {...typeConfig} theme={isDarkMode ? 'dark' : 'light'} key={`type-${isDarkMode ? 'dark' : 'light'}`} /> : <Empty />}
+            </div>
           </Col>
           <Col xs={24} lg={12}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, gap: 10 }}>
               <span style={{ fontWeight: 'bold', color: token.colorTextSecondary }}>分类占比</span>
               <Select defaultValue="expense" size="small" onChange={val => loadCategoryStats(val)} options={[{ value: 'expense', label: '支出' }, { value: 'income', label: '收入' }]} />
             </div>
-            <div style={{ height: 350 }}>{categoryData.length > 0 ? <Pie {...categoryConfig} theme={isDarkMode ? 'dark' : 'light'} key={isDarkMode ? 'dark' : 'light'} /> : <Empty />}</div>
+            <div style={{ height: 350, width: '100%' }}>
+              {categoryData.length > 0 ? <Pie {...categoryConfig} theme={isDarkMode ? 'dark' : 'light'} key={`category-${isDarkMode ? 'dark' : 'light'}`} /> : <Empty />}
+            </div>
           </Col>
         </Row>
       )
