@@ -1,0 +1,86 @@
+(async function generateData() {
+    // --- 配置区域 ---
+    // 如果你的后端端口不是 8080，请在这里修改
+    const BACKEND_URL = 'http://localhost:8080'; 
+    
+    // 1. 获取并检查 Token
+    const token = localStorage.getItem('token');
+    if (!token) {
+        console.error("❌ 错误：未找到 Token！请先在页面上登录系统，然后再次运行此脚本。");
+        return;
+    }
+    console.log(`✅以此 Token 进行操作: ${token.substring(0, 10)}...`);
+
+    // 2. 定义配置
+    const TOTAL_COUNT = 120; // 总条数
+    const DAYS_RANGE = 90;   // 时间范围：近90天
+    
+    // 分类列表 (确保与你数据库中的分类名称一致)
+    const EXPENSE_CATS = ['餐饮', '交通', '购物', '娱乐', '居住', '医疗', '教育', '人情', '其他'];
+    const INCOME_CATS = ['工资', '兼职', '理财', '礼金', '其他'];
+
+    // 辅助函数
+    const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const randomAmount = (min, max) => (Math.random() * (max - min) + min).toFixed(2);
+    const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    console.log(`🚀 开始向 ${BACKEND_URL} 插入 ${TOTAL_COUNT} 条数据...`);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // 3. 循环发送请求
+    for (let i = 0; i < TOTAL_COUNT; i++) {
+        const today = new Date();
+        const pastDate = new Date();
+        pastDate.setDate(today.getDate() - randomInt(0, DAYS_RANGE));
+        pastDate.setHours(randomInt(8, 22), randomInt(0, 59), randomInt(0, 59));
+        
+        // 20% 收入, 80% 支出
+        const isIncome = Math.random() < 0.3;
+        const type = isIncome ? 'income' : 'expense';
+        const category = isIncome ? randomItem(INCOME_CATS) : randomItem(EXPENSE_CATS);
+        const amount = isIncome ? randomAmount(2000, 10000) : randomAmount(10, 800);
+
+        const payload = {
+            amount: amount,
+            type: type,
+            category: category,
+            description: `模拟数据-${i+1} (${pastDate.toISOString().split('T')[0]})`,
+            timestamp: pastDate.toISOString()
+        };
+
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/transactions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` // 必须携带 Bearer Token
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                successCount++;
+                if (successCount % 10 === 0) console.log(`...已成功插入 ${successCount} 条`);
+            } else {
+                failCount++;
+                console.warn(`⚠️ 第 ${i+1} 条插入失败: 状态码 ${response.status}`);
+                if (response.status === 401) {
+                    console.error("⛔ 认证失败：Token 无效或过期，请重新登录！");
+                    break; // Token 失效就停止循环
+                }
+            }
+        } catch (err) {
+            console.error("❌ 网络请求错误:", err);
+            failCount++;
+        }
+    }
+
+    console.log(`\n🎉 任务结束！`);
+    console.log(`成功: ${successCount} 条`);
+    console.log(`失败: ${failCount} 条`);
+    if (successCount > 0) {
+        console.log("👉 请刷新页面查看统计图表");
+    }
+})();
