@@ -12,6 +12,40 @@ export const sanitizeTransactions = (data) => {
   }));
 };
 
+const getFinancialSummary = (transactions) => {
+  if (!transactions || transactions.length === 0) return '暂无交易数据';
+
+  const currentMonth = dayjs().format('YYYY-MM');
+  const monthData = transactions.filter(t => dayjs(t.timestamp).format('YYYY-MM') === currentMonth);
+
+  if (monthData.length === 0) return `当前月份 (${currentMonth}) 暂无数据`;
+
+  const totalExpense = monthData
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const totalIncome = monthData
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+
+  const catMap = {};
+  monthData.filter(t => t.type === 'expense').forEach(t => {
+    catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount);
+  });
+  const sortedCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+  const topCategory = sortedCats.length > 0
+    ? `${sortedCats[0][0]} (¥${sortedCats[0][1].toFixed(2)})`
+    : '无';
+
+  return `
+- 当前月份：${currentMonth}
+- 本月总支出：¥${totalExpense.toFixed(2)}
+- 本月总收入：¥${totalIncome.toFixed(2)}
+- 支出最高分类：${topCategory}
+- 结余：¥${(totalIncome - totalExpense).toFixed(2)}
+  `;
+};
+
 const buildMessages = (history, userMessage, systemPrompt) => {
   return [
     { role: 'system', content: systemPrompt },
@@ -27,11 +61,17 @@ export const callAiApi = async (userMessage, history, config, contextData) => {
   if (!config.apiKey) throw new Error('请先配置 API Key');
 
   const sanitizedData = sanitizeTransactions(contextData);
-  
+  const summary = getFinancialSummary(contextData);
+
   const systemPrompt = `
 # Role
 你是一位专业的私人理财助手。
-用户的账单数据：${JSON.stringify(sanitizedData)}
+
+# Context (实时财务状况)
+${summary}
+
+# Recent Transactions (最近流水)
+${JSON.stringify(sanitizedData)}
 
 # 核心指令 (Action Protocol)
 当且仅当用户明确想要【记账】或【新增记录】时（例如："我刚才打车花了30"），你必须在回复的末尾，严格按照下方格式输出 JSON 指令：

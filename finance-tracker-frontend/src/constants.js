@@ -12,8 +12,7 @@ export const INCOME_CATEGORIES = [
 ];
 
 export const DEFAULT_AI_CONFIG = {
-  // 请在此处填入内置的 Key，用户如果没有配置自己的 Key，将默认使用这个
-  apiKey: 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 
-  baseUrl: 'https://gcli2api-web.zeabur.app/v1', // 注意：通常 OpenAI 兼容接口需要 /v1 后缀
-  model: 'gpt-3.5-turbo'
+  apiKey: '52597755', 
+  baseUrl: 'https://gcli2api-web.zeabur.app/v1', 
+  model: 'gemini-2.5-flash'
 };
