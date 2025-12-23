@@ -40,13 +40,19 @@ public class TransactionController {
     }
 
     @GetMapping("/stats/type")
-    public Map<String, BigDecimal> getStatsByType() {
-        return transactionService.getTotalByType();
+    public Map<String, BigDecimal> getStatsByType(@RequestParam(defaultValue = "30") int days) { //
+        LocalDateTime end = LocalDateTime.now();
+        LocalDateTime start = end.minus(days, ChronoUnit.DAYS);
+        return transactionService.getTotalByType(start, end);
     }
 
     @GetMapping("/stats/category")
-    public Map<String, BigDecimal> getStatsByCategory(@RequestParam(required = false) String type) {
-        return transactionService.getTotalByCategory(type);
+    public Map<String, BigDecimal> getStatsByCategory(
+            @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "30") int days) { //
+        LocalDateTime end = LocalDateTime.now();
+        LocalDateTime start = end.minus(days, ChronoUnit.DAYS);
+        return transactionService.getTotalByCategory(type, start, end);
     }
 
     @GetMapping("/stats/recent")

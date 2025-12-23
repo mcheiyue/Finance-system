@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "🚀 一键启动前后端 (Finance System)",
+      "request": "launch",
+      "mainClass": "com.gcc_0119.finance_tracker.FinanceTrackerApplication",
+      "projectName": "finance-tracker",
+      "preLaunchTask": "Start Frontend" // 启动后端前，先执行前端任务
+    }
+  ]
+}

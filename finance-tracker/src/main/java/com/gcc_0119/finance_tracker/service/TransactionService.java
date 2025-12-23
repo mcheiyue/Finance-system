@@ -68,10 +68,11 @@ public class TransactionService {
         }
     }
 
-    public Map<String, BigDecimal> getTotalByType() {
+    public Map<String, BigDecimal> getTotalByType(LocalDateTime start, LocalDateTime end) { 
         String userId = getCurrentUserId();
-        MatchOperation matchUser = Aggregation.match(Criteria.where("userId").is(userId));
-
+        MatchOperation matchUser = Aggregation.match(
+                Criteria.where("userId").is(userId)
+                        .and("timestamp").gte(start).lte(end));
         GroupOperation group = Aggregation.group("type").sum("amount").as("total");
         Aggregation agg = Aggregation.newAggregation(matchUser, group);
 
@@ -88,9 +89,10 @@ public class TransactionService {
                         }));
     }
 
-    public Map<String, BigDecimal> getTotalByCategory(String type) {
+    public Map<String, BigDecimal> getTotalByCategory(String type, LocalDateTime start, LocalDateTime end) { 
         String userId = getCurrentUserId();
-        Criteria criteria = Criteria.where("userId").is(userId);
+        Criteria criteria = Criteria.where("userId").is(userId)
+                .and("timestamp").gte(start).lte(end);
         if (type != null && !type.isEmpty()) {
             criteria.and("type").is(type);
         }
