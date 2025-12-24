@@ -33,25 +33,54 @@ export const useAIChat = (contextData, onActionReceived, onFilterReceived) => {
 
     try {
       const responseRaw = await callAiApi(text, messages, config, contextData);
-
+      
       let finalDisplayContent = responseRaw;
 
-      const thoughtRegex = /\[THOUGHT\]([\s\S]*?)\[\/THOUGHT\]/;
-      const thoughtMatch = finalContent.match(thoughtRegex);
+      // ============ 【新策略：优先使用 [REPLY] 分割】 ============
+      if (finalDisplayContent.includes('[REPLY]')) {
+        // 打印思考过程（用于调试）
+        const parts = finalDisplayContent.split('[REPLY]');
+        console.log("🤔 AI 思考过程 (Hidden):", parts[0].trim());
+        
+        // 只取 [REPLY] 之后的部分展示给用户
+        finalDisplayContent = parts[1].trim();
+      } else {
+        // ============ 【备用策略：正则清洗】(防止 AI 忘了写 [REPLY]) ============
+        const strictThoughtRegex = /\[THOUGHT\]([\s\S]*?)\[\/THOUGHT\]/i;
+        const looseThoughtRegex = /^THOUGHT[\s\S]*?(?=\n\n|\[ACTION\]|\[FILTER\]|$)/i;
 
-      if (thoughtMatch) {
-        console.log("🤔 AI 思维链:", thoughtMatch[1].trim());
-        finalContent = finalContent.replace(thoughtRegex, '').trim();
+        let thoughtMatch = finalDisplayContent.match(strictThoughtRegex);
+        if (thoughtMatch) {
+          console.log("🤔 AI 思考 (Regex):", thoughtMatch[1].trim());
+          finalDisplayContent = finalDisplayContent.replace(strictThoughtRegex, '').trim();
+        } else {
+          thoughtMatch = finalDisplayContent.match(looseThoughtRegex);
+          if (thoughtMatch) {
+            finalDisplayContent = finalDisplayContent.replace(looseThoughtRegex, '').trim();
+          }
+        }
       }
 
+      // ============ 【通用清洗：去除漏网的 JSON 数据】 ============
+      // 修复了之前的 SyntaxError (移除了无效的 'k' flag)
+      const jsonLineRegex = /^\{.*"type".*?\}\s*(\(.*?\))?$/gm; 
+      finalDisplayContent = finalDisplayContent.replace(jsonLineRegex, '').trim();
+      
+      // 清除常见的废话前缀
+      finalDisplayContent = finalDisplayContent
+        .replace(/^遍历交易记录[：:]/gm, '')
+        .replace(/^筛选步骤[：:]/gm, '')
+        .trim();
+
+      // ============ 【指令处理】(逻辑不变) ============
       const filterRegex = /\[FILTER\]\s*(\{[\s\S]*?\})\s*\[\/FILTER\]/;
-      const filterMatch = responseRaw.match(filterRegex);
+      const filterMatch = responseRaw.match(filterRegex); // 注意：用 responseRaw 匹配指令
       if (filterMatch) {
         try {
           const filterData = JSON.parse(filterMatch[1]);
           finalDisplayContent = finalDisplayContent.replace(filterRegex, '').trim();
           if (onFilterReceived) onFilterReceived(filterData);
-        } catch (e) { console.error('Filter parse error', e); }
+        } catch (e) { console.error('Filter error', e); }
       }
 
       const actionRegex = /\[ACTION\]\s*(\[[\s\S]*?\])\s*\[\/ACTION\]/;
@@ -74,6 +103,7 @@ export const useAIChat = (contextData, onActionReceived, onFilterReceived) => {
         onActionReceived(actionData);
       }
 
+      // 兜底
       if (!finalDisplayContent && (actionData || filterMatch)) {
         finalDisplayContent = '已为您执行操作。';
       }

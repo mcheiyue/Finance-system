@@ -6,7 +6,7 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants';
 dayjs.locale('zh-cn');
 
 export const sanitizeTransactions = (data) => {
-    return (data || []).slice(0, 50).map(item => ({
+  return (data || []).slice(0, 50).map(item => ({
     type: item.type === 'income' ? '收入' : '支出',
     category: item.category,
     amount: item.amount,
@@ -29,12 +29,12 @@ const getFinancialSummary = (transactions) => {
 const buildMessages = (history, userMessage, systemPrompt) => {
   return [
     { role: 'system', content: systemPrompt },
-        ...history.slice(-10).map(m => ({
+    ...history.slice(-10).map(m => ({
       role: m.role === 'ai' || m.role === 'assistant' ? 'assistant' : 'user',
       content: String(m.content)
+        // 清理历史记录，节省 Token
         .replace(/\[THOUGHT\][\s\S]*?\[\/THOUGHT\]/g, '') 
-        .replace(/\[ACTION\][\s\S]*?\[\/ACTION\]/g, '[已记账]') 
-        .replace(/\[FILTER\][\s\S]*?\[\/FILTER\]/g, '[已执行查询]')
+        .replace(/\[REPLY\]/g, '')
         .trim()
     })),
     { role: 'user', content: userMessage }
@@ -46,11 +46,11 @@ export const callAiApi = async (userMessage, history, config, contextData) => {
 
   const sanitizedData = sanitizeTransactions(contextData);
   const summary = getFinancialSummary(contextData);
-  
-    const now = dayjs();
+  const now = dayjs();
   const timeAnchor = `${now.format('YYYY-MM-DD HH:mm')} (${now.format('dddd')})`;
 
-const systemPrompt = `
+  // ==================== 【重点：引入 [REPLY] 强制分割】 ====================
+  const systemPrompt = `
 # Role
 你是一位专业的私人理财助手。
 **当前时间锚点**：${timeAnchor}
@@ -58,48 +58,43 @@ const systemPrompt = `
 # Context
 - ${summary}
 - 最近 50 笔交易：${JSON.stringify(sanitizedData)}
-- 注意：你只能看到最近 50 笔。如需查询更早数据，请使用 [FILTER] 指令，不要直接回答“没有记录”。
 
-# 协议 (Protocols)
+# 核心协议 (Protocols)
 
-请先在 **[THOUGHT]** 标签中进行推理，然后根据情况输出 **[ACTION]**、**[FILTER]** 或直接回复文本。
+## 1. 思考与回复 (Mandatory Flow)
+你必须严格遵守以下输出结构：
+1. 先在 **[THOUGHT]** 标签内进行思考（计算、筛选、逻辑推理）。
+2. 然后使用 **[REPLY]** 标签开始你的最终回复。
+3. **[REPLY]** 标签后的内容才是给用户看的，之前的所有内容都会被系统隐藏。
 
-## 1. 记账 (Action)
-当信息（金额、分类）完整时生成。
-分类必须属于：[${EXPENSE_CATEGORIES.join(', ')}] 或 [${INCOME_CATEGORIES.join(', ')}]。
-**模糊匹配**："肯德基"->"餐饮", "打车"->"交通"。
+**正确结构示例：**
+[THOUGHT]
+用户问上周支出。定位日期范围... 遍历数据发现3笔... 总和400。
+[/THOUGHT]
+[REPLY]
+根据记录，您上周共支出了 400 元。
 
-格式：
-[ACTION]
-[{"type":"expense","amount":30,"category":"餐饮","description":"肯德基"}]
-[/ACTION]
+## 2. 功能指令
+- **记账**：在 [REPLY] 之后输出 [ACTION] JSON。
+- **查账**：在 [REPLY] 之后输出 [FILTER] JSON。
 
-## 2. 查账 (Filter)
-当用户询问历史记录时。
-**时间推算规则**：基于“当前时间锚点”进行推算。
-例如：若今天是周三，问“上周五”，则计算出上周五的具体日期填入。
-
-格式：
-[FILTER]
-{"type": "expense", "startDate": "2025-XX-XX", "endDate": "2025-XX-XX"}
-[/FILTER]
-
-## 3. 追问 (Ask)
-当信息缺失（如只说了金额没说分类）时，请不要生成指令，直接像真人一样追问用户。
+# 🚫 严格禁令
+1. **严禁**在 [REPLY] 标签之前输出任何给用户的回复。
+2. **严禁**在 [REPLY] 标签之后输出类似 \`{"type":"expense"...}\` 的原始数据行，除非是被 [ACTION] 包裹。
+3. **严禁**在 [REPLY] 之后列出计算步骤（如“第一笔...第二笔...”），只给结论。
 
 # 示例
 用户：上周三吃饭花了多少？
 回复：
 [THOUGHT]
-用户意图是查账。
-当前是 ${timeAnchor}。推算出上周三是 XXXX-XX-XX。
-分类关键词：吃饭 -> "餐饮"。
+1. 确定日期：2025-12-17。
+2. 筛选分类：餐饮。
+3. 遍历发现1笔：402.45。
 [/THOUGHT]
-[FILTER]
-{"type": "expense", "keyword": "餐饮", "startDate": "...", "endDate": "..."}
-[/FILTER]
+[REPLY]
+根据记录，您上周三（12月17日）在餐饮方面共消费了 402.45 元。
 `;
-
+  
   const aiInstance = axios.create();
   const messages = buildMessages(history, userMessage, systemPrompt);
 
@@ -107,7 +102,7 @@ const systemPrompt = `
     const response = await aiInstance.post(`${config.baseUrl}/chat/completions`, {
       model: config.model,
       messages: messages,
-      temperature: 0.3 
+      temperature: 0.3 // 低温保证格式稳定
     }, {
       headers: {
         'Authorization': `Bearer ${config.apiKey.trim()}`,
@@ -115,10 +110,9 @@ const systemPrompt = `
       }
     });
 
-            const choices = response.data?.choices;
+    const choices = response.data?.choices;
     if (!choices || choices.length === 0) {
-      console.error('AI 原始响应异常:', response.data);
-      throw new Error('AI 返回内容为空。请检查：1. 模型名称是否正确 (建议 gemini-1.5-flash)；2. 是否触发了安全拦截。');
+      throw new Error('AI 返回内容为空。请检查模型名称是否正确。');
     }
 
     return choices[0].message.content;
