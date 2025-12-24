@@ -3,20 +3,20 @@ import { App } from 'antd';
 import { callAiApi } from '../services/aiService';
 import { DEFAULT_AI_CONFIG } from '../constants';
 
-export const useAIChat = () => {
+export const useAIChat = (contextData, onActionReceived, onFilterReceived) => {
   const { message: msgApi } = App.useApp();
-  
+
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [configVisible, setConfigVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-  
+
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: '您好！我是您的 AI 财务助手。您可以直接告诉我您的消费情况，我会为您预填账单。' }
+    { role: 'assistant', content: '您好！我是您的 AI 财务助手。' }
   ]);
 
   const [config, setConfig] = useState(() => {
     const saved = localStorage.getItem('ai_chat_config');
-    return saved ? JSON.parse(saved) : DEFAULT_AI_CONFIG;
+    return saved ? JSON.parse(saved) : (DEFAULT_AI_CONFIG || { apiKey: '', baseUrl: '', model: '' });
   });
 
   const updateConfig = (newConfig) => {
@@ -26,41 +26,65 @@ export const useAIChat = () => {
     setConfigVisible(false);
   };
 
-  const sendMessage = async (text, contextData) => {
+  const sendMessage = async (text) => {
+    if (!text.trim()) return;
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setLoading(true);
 
-    let actionResult = null;
-
     try {
       const response = await callAiApi(text, messages, config, contextData);
-      
-      const actionRegex = /\[ACTION\]\s*(\{[\s\S]*?\})\s*\[\/ACTION\]/;
-      const match = response.match(actionRegex);
 
-      if (match) {
+      let finalContent = response;
+
+      const filterRegex = /\[FILTER\]\s*(\{[\s\S]*?\})\s*\[\/FILTER\]/;
+      const filterMatch = finalContent.match(filterRegex); 
+
+      if (filterMatch) {
         try {
-          const actionData = JSON.parse(match[1]);
-          const cleanText = response.replace(actionRegex, '').trim();
-          
-          setMessages(prev => [...prev, { role: 'assistant', content: cleanText || '已为您准备好记账单' }]);
-          
-          actionResult = actionData;
+          const filterData = JSON.parse(filterMatch[1]);
+          finalContent = finalContent.replace(filterRegex, '').trim();
+
+          if (onFilterReceived) onFilterReceived(filterData);
         } catch (e) {
-          console.error("Action Parse Error", e);
-          setMessages(prev => [...prev, { role: 'assistant', content: response.replace(/\[ACTION\][\s\S]*?\[\/ACTION\]/g, '') }]);
+          console.error('Filter parse error', e);
         }
-      } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: response }]);
       }
+
+      const actionRegex = /\[ACTION\]\s*(\[[\s\S]*?\])\s*\[\/ACTION\]/;
+      const actionMatch = finalContent.match(actionRegex); 
+
+      const rawActionMatch = response.match(actionRegex);
+
+      if (rawActionMatch) {
+        try {
+          const actionData = JSON.parse(rawActionMatch[1]);
+          finalContent = finalContent.replace(actionRegex, '').trim();
+
+          if (onActionReceived) onActionReceived(actionData);
+        } catch (e) {
+          try {
+            const singleMatch = response.match(/\[ACTION\]\s*(\{[\s\S]*?\})\s*\[\/ACTION\]/);
+            if (singleMatch) {
+              const single = JSON.parse(singleMatch[1]);
+              finalContent = finalContent.replace(/\[ACTION\]\s*(\{[\s\S]*?\})\s*\[\/ACTION\]/, '').trim();
+              if (onActionReceived) onActionReceived([single]);
+            }
+          } catch (err) { }
+        }
+      }
+
+      if (!finalContent && (rawActionMatch || filterMatch)) {
+        finalContent = '已为您执行相关操作。';
+      }
+
+      setMessages(prev => [...prev, { role: 'assistant', content: finalContent }]);
+
     } catch (e) {
-      msgApi.error(`AI 请求失败: ${e.message}`);
-      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ 错误: ${e.message}` }]);
+      msgApi.error(`AI Error: ${e.message}`);
+      setMessages(prev => [...prev, { role: 'assistant', content: `❌ ${e.message}` }]);
     } finally {
       setLoading(false);
     }
-
-    return actionResult;
   };
 
   return {

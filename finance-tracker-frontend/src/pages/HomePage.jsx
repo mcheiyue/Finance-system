@@ -32,7 +32,6 @@ const CATEGORY_ICONS = {
 
 function HomePage() {
   const { modal, message: msgApi } = App.useApp();
-  const aiChat = useAIChat();
 
   const [allData, setAllData] = useState([]);
   const [displayData, setDisplayData] = useState([]);
@@ -48,9 +47,53 @@ function HomePage() {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [editingId, setEditingId] = useState(null);
 
+    const [actionQueue, setActionQueue] = useState([]);
+
   const [form] = Form.useForm();
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
+
+  
+    const handleAiAction = (actions) => {
+    if (actions && actions.length > 0) {
+      setActionQueue(actions); 
+      aiChat.setDrawerVisible(false); 
+    }
+  };
+
+    const handleAiFilter = (filterData) => {
+    if (filterData.type) setFilterType(filterData.type === 'all' ? 'all' : filterData.type);
+    if (filterData.keyword !== undefined) setSearchText(filterData.keyword);
+    if (filterData.startDate) setStartDate(dayjs(filterData.startDate));
+    if (filterData.endDate) setEndDate(dayjs(filterData.endDate));
+    
+    msgApi.success('AI 已为您筛选相关记录');
+    aiChat.setDrawerVisible(false);
+  };
+
+    const aiChat = useAIChat(displayData, handleAiAction, handleAiFilter);
+
+    useEffect(() => {
+        if (!modalVisible && actionQueue.length > 0) {
+      const nextItem = actionQueue[0];
+      
+      form.setFieldsValue({
+        ...nextItem,
+        timestamp: dayjs()
+      });
+      setCurrentType(nextItem.type);
+      setEditingId(null);
+      
+      setModalVisible(true);
+      
+            setActionQueue(prev => prev.slice(1));
+      
+      if (actionQueue.length > 1) {
+        msgApi.info(`还有 ${actionQueue.length - 1} 笔账单待确认`);
+      }
+    }
+  }, [modalVisible, actionQueue]);
+
 
   const loadTransactions = async () => {
     setLoading(true);
@@ -157,22 +200,9 @@ function HomePage() {
     });
     setModalVisible(true);
   };
-
-  // 处理 AI 发送，并连接 UI 动作
-  const handleAiSend = async (text) => {
-    const actionData = await aiChat.sendMessage(text, displayData);
-    
-    // 如果 Hook 返回了动作数据（即 AI 想要记账）
-    if (actionData) {
-      form.setFieldsValue({
-        ...actionData,
-        timestamp: dayjs()
-      });
-      setCurrentType(actionData.type);
-      setModalVisible(true);
-      aiChat.setDrawerVisible(false);  
-      msgApi.success('AI 已预填账单，请检查并保存');
-    }
+  
+    const handleAiSend = (text) => {
+    aiChat.sendMessage(text);
   };
 
   const columns = [
@@ -229,7 +259,7 @@ function HomePage() {
 
   return (
     <div style={{ margin: '0 auto', marginTop: 24 }}>
-      {/* 搜索栏卡片 */}
+      {/* 搜索栏 */}
       <Card variant="borderless" style={{ marginBottom: 24 }} styles={{ body: { padding: '20px 24px' } }}>
         <Row gutter={[24, 16]} align="middle">
           <Col xs={24} sm={12} md={6}><Input placeholder="搜索..." prefix={<SearchOutlined style={{ color: token.colorTextSecondary }} />} value={searchText} onChange={e => setSearchText(e.target.value)} allowClear /></Col>
@@ -239,14 +269,14 @@ function HomePage() {
         </Row>
       </Card>
 
-      {/* 数据列表卡片 */}
+      {/* 列表主体 */}
       <Card
         variant="borderless"
         title={<Space><AppstoreOutlined /><span>账单明细</span></Space>}
         extra={
           <Space>
             {selectedRowKeys.length > 0 && (<Button danger icon={<DeleteOutlined />} onClick={handleBatchDelete}>删除</Button>)}
-            {/* 使用 Hook 中的状态 */}
+            {/* 使用 aiChat.setDrawerVisible 控制开关 */}
             <Button icon={<RobotOutlined />} onClick={() => aiChat.setDrawerVisible(true)} style={{ color: token.colorPrimary }}>AI 助手</Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={showModal}>记一笔</Button>
           </Space>
@@ -254,34 +284,61 @@ function HomePage() {
       >
         <Spin spinning={loading}>
           {!screens.md ? (
-             /* 移动端视图 (代码保持不变，为了节省篇幅省略中间部分，逻辑与之前一致) */
-             <div>
-                {/* ... existing mobile view code ... */}
-                {currentMobileData.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {currentMobileData.map((item) => {
-                      const isIncome = item.type === 'income';
-                      const Icon = CATEGORY_ICONS[item.category] || <AppstoreOutlined />;
-                      return (
-                        <Card key={item.id} size="small" style={{ width: '100%', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} styles={{ body: { padding: '12px' } }}>
-                           {/* ... card content ... */}
-                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                             <Space><Avatar size={32} icon={Icon} /><Text strong>{item.category}</Text></Space>
-                             <span className="font-mono" style={{ color: isIncome ? token.colorSuccess : token.colorError, fontWeight: 'bold' }}>
-                               {isIncome ? '+' : '-'} {Number(item.amount).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
-                             </span>
-                           </div>
-                           <div style={{display:'flex', justifyContent:'space-between'}}>
-                              <Text type="secondary">{dayjs(item.timestamp).format('YYYY-MM-DD HH:mm')}</Text>
-                              <Space><Button size="small" type="text" onClick={() => handleEdit(item)}>编辑</Button></Space>
-                           </div>
-                        </Card>
-                      );
-                    })}
-                    <Pagination simple current={currentPage} pageSize={pageSize} total={displayData.length} onChange={setCurrentPage} />
+            <div>
+              {currentMobileData.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {currentMobileData.map((item) => {
+                    const isIncome = item.type === 'income';
+                    const Icon = CATEGORY_ICONS[item.category] || <AppstoreOutlined />;
+
+                    return (
+                      <Card
+                        key={item.id}
+                        size="small"
+                        style={{ width: '100%', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+                        styles={{ body: { padding: '12px' } }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <Space>
+                            <Avatar
+                              size={32}
+                              icon={Icon}
+                              style={{ backgroundColor: token.colorBgLayout, color: token.colorText, border: `1px solid ${token.colorBorder}` }}
+                            />
+                            <Text strong style={{ fontSize: 16 }}>{item.category}</Text>
+                          </Space>
+                          <span className="font-mono" style={{ color: isIncome ? token.colorSuccess : token.colorError, fontWeight: 'bold', fontSize: 18 }}>
+                            {isIncome ? '+' : '-'} {Number(item.amount).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {dayjs(item.timestamp).format('YYYY-MM-DD HH:mm')}
+                          </Text>
+                          <Space>
+                            <Button size="small" type="text" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>
+                            <Popconfirm title="确认删除此记录?" onConfirm={() => handleDelete(item.id)} okText="删除" cancelText="取消">
+                              <Button size="small" type="text" danger icon={<DeleteOutlined />}>删除</Button>
+                            </Popconfirm>
+                          </Space>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, width: '100%' }}>
+                    <Pagination
+                      simple
+                      current={currentPage}
+                      pageSize={pageSize}
+                      total={displayData.length}
+                      onChange={(page) => setCurrentPage(page)}
+                    />
                   </div>
-                ) : <div style={{textAlign:'center'}}>暂无数据</div>}
-             </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '20px', color: token.colorTextSecondary }}>暂无数据</div>
+              )}
+            </div>
           ) : (
             <Table
               rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
@@ -293,21 +350,28 @@ function HomePage() {
                 current: currentPage,
                 pageSize: pageSize,
                 total: displayData.length,
-                onChange: (p, s) => { setCurrentPage(p); setPageSize(s); }
+                pageSizeOptions: ['10', '20', '50', '100'],
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条 / 共 ${total} 条`,
+                placement: ['bottomCenter'],
+                onChange: (p, s) => {
+                  setCurrentPage(p);
+                  setPageSize(s);
+                }
               }}
             />
           )}
         </Spin>
       </Card>
 
-      {/* AI 组件使用 Hook 的 props */}
       <AIChatDrawer
         visible={aiChat.drawerVisible}
         onClose={() => aiChat.setDrawerVisible(false)}
         onOpenConfig={() => aiChat.setConfigVisible(true)}
         messages={aiChat.messages}
         loading={aiChat.loading}
-        onSend={handleAiSend}
+        onSend={handleAiSend} 
         hasConfig={!!aiChat.config.apiKey}
       />
 
@@ -318,7 +382,6 @@ function HomePage() {
         initialValues={aiChat.config}
       />
 
-      {/* 记账表单 Modal 保持不变 */}
       <Modal title={editingId ? "编辑记录" : "新增记录"} open={modalVisible} onCancel={() => setModalVisible(false)} footer={null} width={500} zIndex={1050}>
         <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ type: 'expense' }} style={{ marginTop: 20 }}>
           <Row gutter={16}>
