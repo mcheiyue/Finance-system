@@ -37,11 +37,11 @@ export const useAIChat = (contextData, onActionReceived, onFilterReceived) => {
       let finalDisplayContent = responseRaw;
 
       const thoughtRegex = /\[THOUGHT\]([\s\S]*?)\[\/THOUGHT\]/;
-      const thoughtMatch = responseRaw.match(thoughtRegex);
+      const thoughtMatch = finalContent.match(thoughtRegex);
+
       if (thoughtMatch) {
-        const thoughtProcess = thoughtMatch[1].trim();
-        console.log("AI Thought Process:", thoughtProcess); 
-        finalDisplayContent = finalDisplayContent.replace(thoughtRegex, '').trim();
+        console.log("🤔 AI 思维链:", thoughtMatch[1].trim());
+        finalContent = finalContent.replace(thoughtRegex, '').trim();
       }
 
       const filterRegex = /\[FILTER\]\s*(\{[\s\S]*?\})\s*\[\/FILTER\]/;
@@ -55,8 +55,8 @@ export const useAIChat = (contextData, onActionReceived, onFilterReceived) => {
       }
 
       const actionRegex = /\[ACTION\]\s*(\[[\s\S]*?\])\s*\[\/ACTION\]/;
-      const actionMatch = responseRaw.match(actionRegex); 
-      const singleActionRegex = /\[ACTION\]\s*(\{[\s\S]*?\})\s*\[\/ACTION\]/; 
+      const actionMatch = responseRaw.match(actionRegex);
+      const singleActionRegex = /\[ACTION\]\s*(\{[\s\S]*?\})\s*\[\/ACTION\]/;
 
       let actionData = null;
       if (actionMatch) {

@@ -13,8 +13,6 @@ export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-
-
   const { message } = App.useApp();
 
 
