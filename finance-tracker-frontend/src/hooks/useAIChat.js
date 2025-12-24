@@ -32,52 +32,53 @@ export const useAIChat = (contextData, onActionReceived, onFilterReceived) => {
     setLoading(true);
 
     try {
-      const response = await callAiApi(text, messages, config, contextData);
+      const responseRaw = await callAiApi(text, messages, config, contextData);
 
-      let finalContent = response;
+      let finalDisplayContent = responseRaw;
+
+      const thoughtRegex = /\[THOUGHT\]([\s\S]*?)\[\/THOUGHT\]/;
+      const thoughtMatch = responseRaw.match(thoughtRegex);
+      if (thoughtMatch) {
+        const thoughtProcess = thoughtMatch[1].trim();
+        console.log("AI Thought Process:", thoughtProcess); 
+        finalDisplayContent = finalDisplayContent.replace(thoughtRegex, '').trim();
+      }
 
       const filterRegex = /\[FILTER\]\s*(\{[\s\S]*?\})\s*\[\/FILTER\]/;
-      const filterMatch = finalContent.match(filterRegex); 
-
+      const filterMatch = responseRaw.match(filterRegex);
       if (filterMatch) {
         try {
           const filterData = JSON.parse(filterMatch[1]);
-          finalContent = finalContent.replace(filterRegex, '').trim();
-
+          finalDisplayContent = finalDisplayContent.replace(filterRegex, '').trim();
           if (onFilterReceived) onFilterReceived(filterData);
-        } catch (e) {
-          console.error('Filter parse error', e);
-        }
+        } catch (e) { console.error('Filter parse error', e); }
       }
 
       const actionRegex = /\[ACTION\]\s*(\[[\s\S]*?\])\s*\[\/ACTION\]/;
-      const actionMatch = finalContent.match(actionRegex); 
+      const actionMatch = responseRaw.match(actionRegex); 
+      const singleActionRegex = /\[ACTION\]\s*(\{[\s\S]*?\})\s*\[\/ACTION\]/; 
 
-      const rawActionMatch = response.match(actionRegex);
-
-      if (rawActionMatch) {
-        try {
-          const actionData = JSON.parse(rawActionMatch[1]);
-          finalContent = finalContent.replace(actionRegex, '').trim();
-
-          if (onActionReceived) onActionReceived(actionData);
-        } catch (e) {
-          try {
-            const singleMatch = response.match(/\[ACTION\]\s*(\{[\s\S]*?\})\s*\[\/ACTION\]/);
-            if (singleMatch) {
-              const single = JSON.parse(singleMatch[1]);
-              finalContent = finalContent.replace(/\[ACTION\]\s*(\{[\s\S]*?\})\s*\[\/ACTION\]/, '').trim();
-              if (onActionReceived) onActionReceived([single]);
-            }
-          } catch (err) { }
+      let actionData = null;
+      if (actionMatch) {
+        try { actionData = JSON.parse(actionMatch[1]); } catch (e) { }
+        finalDisplayContent = finalDisplayContent.replace(actionRegex, '').trim();
+      } else {
+        const singleMatch = responseRaw.match(singleActionRegex);
+        if (singleMatch) {
+          try { actionData = [JSON.parse(singleMatch[1])]; } catch (e) { }
+          finalDisplayContent = finalDisplayContent.replace(singleActionRegex, '').trim();
         }
       }
 
-      if (!finalContent && (rawActionMatch || filterMatch)) {
-        finalContent = '已为您执行相关操作。';
+      if (actionData && onActionReceived) {
+        onActionReceived(actionData);
       }
 
-      setMessages(prev => [...prev, { role: 'assistant', content: finalContent }]);
+      if (!finalDisplayContent && (actionData || filterMatch)) {
+        finalDisplayContent = '已为您执行操作。';
+      }
+
+      setMessages(prev => [...prev, { role: 'assistant', content: finalDisplayContent }]);
 
     } catch (e) {
       msgApi.error(`AI Error: ${e.message}`);
