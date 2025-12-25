@@ -30,7 +30,7 @@ const CATEGORY_ICONS = {
 };
 
 function HomePage() {
-  const { modal } = App.useApp();
+  const { modal, message } = App.useApp();
   const [allData, setAllData] = useState([]);
   const [displayData, setDisplayData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -179,7 +179,7 @@ function HomePage() {
     {
       title: '收支类型', dataIndex: 'type', width: 100, align: 'center',
       render: (type) => (
-        <Tag color={type === 'income' ? 'success' : 'error'} bordered={false}>
+        <Tag color={type === 'income' ? 'success' : 'error'} variant="borderless">
           {type === 'income' ? '收入' : '支出'}
         </Tag>
       ),
@@ -205,7 +205,7 @@ function HomePage() {
         const budgets = JSON.parse(localStorage.getItem('finance_budgets') || '{}');
         const limit = budgets[record.category];
         if (!limit) return <Tooltip title="未设置"><QuestionCircleOutlined style={{ color: token.colorTextSecondary }} /></Tooltip>;
-        return record.amount > limit ? <Tag color="error" bordered={false}>超支</Tag> : <Tag color="success" bordered={false}>正常</Tag>;
+        return record.amount > limit ? <Tag color="error" variant="borderless">超支</Tag> : <Tag color="success" variant="borderless">正常</Tag>;
       }
     },
     { title: '备注', dataIndex: 'description', ellipsis: true, render: t => <span style={{ color: token.colorTextSecondary }}>{t || '-'}</span> },

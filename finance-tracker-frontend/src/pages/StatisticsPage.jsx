@@ -114,9 +114,40 @@ const typeConfig = useMemo(() => ({
     xField: 'date',
     yField: 'net',
     shapeField: 'smooth',
-    style: { fill: `linear-gradient(to bottom, ${token.colorPrimary} 60%, ${token.colorBgContainer} 100%)`, fillOpacity: 0.25, stroke: token.colorPrimary, lineWidth: 2, },
-    axis: { y: { grid: { line: { style: { lineDash: [4, 4], stroke: token.colorBorderSecondary, strokeOpacity: 0.6, } } } }, x: { line: null, tick: null, labelAutoHide: true, } },
-    tooltip: { title: (d) => d.date, items: [ (d) => ({ name: '收入', value: `+${Number(d.income).toFixed(2)}`, color: token.colorSuccess }), (d) => ({ name: '支出', value: `-${Number(d.expense).toFixed(2)}`, color: token.colorError }), (d) => ({ name: '净额', value: `${Number(d.net).toFixed(2)}`, color: token.colorPrimary }), ], },
+    style: { 
+      fill: `linear-gradient(to bottom, ${token.colorPrimary} 60%, ${token.colorBgContainer} 100%)`, 
+      fillOpacity: 0.25, 
+      stroke: token.colorPrimary, 
+      lineWidth: 2, 
+    },
+    axis: { 
+      y: { 
+        title: false,
+        labelFill: token.colorTextSecondary,
+        labelFontSize: 11,
+        labelFormatter: (v) => `¥${v}`,
+        gridLineDash: [4, 4],
+        gridStroke: token.colorBorderSecondary,
+        gridStrokeOpacity: 0.6,
+      }, 
+      x: { 
+        title: false,
+        labelFill: token.colorTextSecondary,
+        labelFontSize: 11,
+        labelAutoHide: true,
+        labelAutoRotate: false,
+        lineStroke: token.colorBorderSecondary,
+        tickStroke: token.colorBorderSecondary,
+      } 
+    },
+    tooltip: { 
+      title: (d) => d.date, 
+      items: [ 
+        (d) => ({ name: '收入', value: `+¥${Number(d.income).toFixed(2)}`, color: token.colorSuccess }), 
+        (d) => ({ name: '支出', value: `-¥${Number(d.expense).toFixed(2)}`, color: token.colorError }), 
+        (d) => ({ name: '净额', value: `¥${Number(d.net).toFixed(2)}`, color: token.colorPrimary }), 
+      ], 
+    },
   };
 
   const StatCard = ({ title, value, color, icon }) => (
