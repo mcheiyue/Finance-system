@@ -1,6 +1,7 @@
 package com.gcc_0119.finance_tracker.controller;
 
-import com.gcc_0119.finance_tracker.model.Transaction;
+import com.gcc_0119.finance_tracker.common.ApiResponse; 
+import com.gcc_0119.finance_tracker.dto.TransactionDTO; 
 import com.gcc_0119.finance_tracker.service.TransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -13,52 +14,55 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/transactions")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") 
 public class TransactionController {
 
     @Autowired
     private TransactionService transactionService;
 
     @PostMapping
-    public Transaction createTransaction(@RequestBody Transaction transaction) {
-        return transactionService.save(transaction);
+    public ApiResponse<TransactionDTO> createTransaction(@RequestBody TransactionDTO transactionDTO) {
+        TransactionDTO result = transactionService.save(transactionDTO);
+        return ApiResponse.success(result);
     }
 
     @GetMapping
-    public List<Transaction> getAllTransactions() {
-        return transactionService.getAllTransactions();
+    public ApiResponse<List<TransactionDTO>> getAllTransactions() {
+        return ApiResponse.success(transactionService.getAllTransactions());
     }
 
     @DeleteMapping("/{id}")
-    public void deleteTransaction(@PathVariable String id) {
+    public ApiResponse<Void> deleteTransaction(@PathVariable String id) {
         transactionService.deleteById(id);
+        return ApiResponse.success("删除成功", null);
     }
 
     @PutMapping("/{id}")
-    public Transaction updateTransaction(@PathVariable String id, @RequestBody Transaction transaction) {
-        return transactionService.update(id, transaction);
+    public ApiResponse<TransactionDTO> updateTransaction(@PathVariable String id, @RequestBody TransactionDTO transactionDTO) {
+        TransactionDTO result = transactionService.update(id, transactionDTO);
+        return ApiResponse.success("更新成功", result);
     }
 
     @GetMapping("/stats/type")
-    public Map<String, BigDecimal> getStatsByType(@RequestParam(defaultValue = "30") int days) { //
+    public ApiResponse<Map<String, BigDecimal>> getStatsByType(@RequestParam(defaultValue = "30") int days) {
         LocalDateTime end = LocalDateTime.now();
         LocalDateTime start = end.minus(days, ChronoUnit.DAYS);
-        return transactionService.getTotalByType(start, end);
+        return ApiResponse.success(transactionService.getTotalByType(start, end));
     }
 
     @GetMapping("/stats/category")
-    public Map<String, BigDecimal> getStatsByCategory(
+    public ApiResponse<Map<String, BigDecimal>> getStatsByCategory(
             @RequestParam(required = false) String type,
-            @RequestParam(defaultValue = "30") int days) { //
+            @RequestParam(defaultValue = "30") int days) {
         LocalDateTime end = LocalDateTime.now();
         LocalDateTime start = end.minus(days, ChronoUnit.DAYS);
-        return transactionService.getTotalByCategory(type, start, end);
+        return ApiResponse.success(transactionService.getTotalByCategory(type, start, end));
     }
 
     @GetMapping("/stats/recent")
-    public List<Transaction> getRecentTransactions(@RequestParam(defaultValue = "7") int days) {
+    public ApiResponse<List<TransactionDTO>> getRecentTransactions(@RequestParam(defaultValue = "7") int days) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime start = now.minus(days, ChronoUnit.DAYS);
-        return transactionService.getTransactionsByDateRange(start, now);
+        return ApiResponse.success(transactionService.getTransactionsByDateRange(start, now));
     }
 }

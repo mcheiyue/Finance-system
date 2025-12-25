@@ -4,6 +4,7 @@ import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.math.BigDecimal; 
 import java.time.LocalDateTime;
 
 @Document(collection = "transactions")
@@ -14,7 +15,8 @@ public class Transaction {
     private String type;        
     private String category;    
 
-    private Double amount;
+    private BigDecimal amount;
+    
     private String description; 
     private LocalDateTime timestamp;
 
