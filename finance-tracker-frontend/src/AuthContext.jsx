@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
     const username = localStorage.getItem('username');
     const roles = localStorage.getItem('roles');
 
-    if (token) {
+    if (token && token !== 'undefined') {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       return { token, username, roles: JSON.parse(roles || '[]') };
     }
@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
     const reqInterceptor = axios.interceptors.request.use(
       (config) => {
         const token = localStorage.getItem('token');
-        if (token) {
+        if (token && token !== 'undefined') {
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -42,8 +42,7 @@ export const AuthProvider = ({ children }) => {
       (response) => response,
       (error) => {
         if (error.response && error.response.status === 401) {
-          if (location.pathname !== '/login' && localStorage.getItem('token')) {
-            console.warn('Token 失效，强制登出');
+          if (location.pathname !== '/login') {
             logout(false);
             message.error('登录已过期，请重新登录');
           }
@@ -56,7 +55,7 @@ export const AuthProvider = ({ children }) => {
       axios.interceptors.request.eject(reqInterceptor);
       axios.interceptors.response.eject(resInterceptor);
     };
-  }, [location.pathname, navigate]);
+  }, [location.pathname]);
 
   const login = async (username, password) => {
     try {
@@ -65,12 +64,13 @@ export const AuthProvider = ({ children }) => {
       const res = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
 
       const apiRes = res.data;
-
       if (apiRes.code !== 200) {
         throw new Error(apiRes.message || '登录异常');
       }
 
       const { token, username: name, roles } = apiRes.data;
+
+      if (!token) throw new Error('Token 获取失败');
 
       localStorage.setItem('token', token);
       localStorage.setItem('username', name);
@@ -80,7 +80,6 @@ export const AuthProvider = ({ children }) => {
 
       setUser({ token, username: name, roles });
       message.success('登录成功！');
-
       navigate('/');
       return true;
     } catch (err) {
