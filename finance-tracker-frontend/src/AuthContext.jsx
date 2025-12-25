@@ -12,11 +12,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-
-
-
   const { message } = App.useApp();
-
 
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem('token');
@@ -29,7 +25,6 @@ export const AuthProvider = ({ children }) => {
     }
     return null;
   });
-
 
   useLayoutEffect(() => {
     const reqInterceptor = axios.interceptors.request.use(
@@ -47,7 +42,7 @@ export const AuthProvider = ({ children }) => {
       (response) => response,
       (error) => {
         if (error.response && error.response.status === 401) {
-          if (window.location.pathname !== '/login' && localStorage.getItem('token')) {
+          if (location.pathname !== '/login' && localStorage.getItem('token')) {
             console.warn('Token 失效，强制登出');
             logout(false);
             message.error('登录已过期，请重新登录');
@@ -61,13 +56,21 @@ export const AuthProvider = ({ children }) => {
       axios.interceptors.request.eject(reqInterceptor);
       axios.interceptors.response.eject(resInterceptor);
     };
-  }, []);
-
+  }, [location.pathname, navigate]);
 
   const login = async (username, password) => {
     try {
       delete axios.defaults.headers.common['Authorization'];
-      const res = await axios.post(`${BASE_URL}/api/auth/login`, { username, password }); const { token, username: name, roles } = res.data;
+
+      const res = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
+
+      const apiRes = res.data;
+
+      if (apiRes.code !== 200) {
+        throw new Error(apiRes.message || '登录异常');
+      }
+
+      const { token, username: name, roles } = apiRes.data;
 
       localStorage.setItem('token', token);
       localStorage.setItem('username', name);
@@ -77,27 +80,33 @@ export const AuthProvider = ({ children }) => {
 
       setUser({ token, username: name, roles });
       message.success('登录成功！');
+
       navigate('/');
       return true;
     } catch (err) {
-      message.error(err.response?.data?.message || '登录失败，请检查账号密码');
+      const errorMsg = err.response?.data?.message || err.message || '登录失败，请检查账号密码';
+      message.error(errorMsg);
       return false;
     }
   };
 
-
   const register = async (username, email, password) => {
     try {
-      await axios.post(`${BASE_URL}/api/auth/register`, { username, email, password });
+      const res = await axios.post(`${BASE_URL}/api/auth/register`, { username, email, password });
+
+      if (res.data.code !== 200) {
+        throw new Error(res.data.message);
+      }
+
       message.success('注册成功，请登录');
       navigate('/login');
       return true;
     } catch (err) {
-      message.error(err.response?.data || '注册失败');
+      const errorMsg = err.response?.data?.message || err.message || '注册失败';
+      message.error(errorMsg);
       return false;
     }
   };
-
 
   const logout = (showMessage = true) => {
     localStorage.clear();
