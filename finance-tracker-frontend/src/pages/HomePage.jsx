@@ -11,11 +11,15 @@ import {
   BankOutlined, RestOutlined, GiftOutlined, PlusOutlined,
   QuestionCircleOutlined, ExclamationCircleOutlined, DollarOutlined, EditOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
 import dayjs from 'dayjs';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants';
+import {
+  getTransactions,
+  createTransaction,
+  updateTransaction,
+  deleteTransaction
+} from '../api/transaction';
 
-const { Option } = Select;
 const { Text } = Typography;
 
 const CATEGORY_ICONS = {
@@ -30,8 +34,11 @@ function HomePage() {
   const [allData, setAllData] = useState([]);
   const [displayData, setDisplayData] = useState([]);
   const [loading, setLoading] = useState(false);
+
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [currentType, setCurrentType] = useState('expense');
+
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchText, setSearchText] = useState('');
@@ -39,7 +46,6 @@ function HomePage() {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
-  const [editingId, setEditingId] = useState(null);
 
   const [form] = Form.useForm();
   const { token } = theme.useToken();
@@ -48,12 +54,13 @@ function HomePage() {
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/transactions');
-      setAllData(response.data);
-      setDisplayData(response.data);
-      setSelectedRowKeys([]);
-    } catch (error) { message.error(error.message); }
-    finally { setLoading(false); }
+      const data = await getTransactions();
+      setAllData(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadTransactions(); }, []);
@@ -63,21 +70,29 @@ function HomePage() {
     if (filterType !== 'all') result = result.filter(item => item.type === filterType);
     if (searchText.trim()) {
       const key = searchText.toLowerCase();
-      result = result.filter(item => (item.category && item.category.includes(key)) || (item.description && item.description.toLowerCase().includes(key)));
+      result = result.filter(item =>
+        (item.category && item.category.includes(key)) ||
+        (item.description && item.description.toLowerCase().includes(key))
+      );
     }
     if (startDate) result = result.filter(item => new Date(item.timestamp).getTime() >= startDate.startOf('day').valueOf());
     if (endDate) result = result.filter(item => new Date(item.timestamp).getTime() <= endDate.endOf('day').valueOf());
+
     setDisplayData(result);
     if (searchText || filterType !== 'all' || startDate || endDate) setCurrentPage(1);
   }, [allData, searchText, filterType, startDate, endDate]);
 
   const handleResetSearch = () => {
     setSearchText(''); setFilterType('all'); setStartDate(null); setEndDate(null);
-    setDisplayData(allData); message.success('筛选已重置');
+    message.success('筛选已重置');
   };
 
   const handleDelete = async (id) => {
-    try { await axios.delete(`/api/transactions/${id}`); message.success('删除成功'); loadTransactions(); } catch (error) { message.error('删除失败'); }
+    try {
+      await deleteTransaction(id);
+      message.success('删除成功');
+      loadTransactions();
+    } catch (error) { }
   };
 
   const handleBatchDelete = () => {
@@ -87,7 +102,12 @@ function HomePage() {
       icon: <ExclamationCircleOutlined />,
       okText: '删除', okType: 'danger', cancelText: '取消',
       onOk: async () => {
-        try { await Promise.all(selectedRowKeys.map(id => axios.delete(`/api/transactions/${id}`))); message.success('批量删除成功'); loadTransactions(); } catch (e) { message.error('删除失败'); }
+        try {
+          await Promise.all(selectedRowKeys.map(id => deleteTransaction(id)));
+          message.success('批量删除成功');
+          setSelectedRowKeys([]);
+          loadTransactions();
+        } catch (e) { }
       },
     });
   };
@@ -95,6 +115,7 @@ function HomePage() {
   const handleExport = () => {
     let data = selectedRowKeys.length > 0 ? displayData.filter(i => selectedRowKeys.includes(i.id)) : displayData;
     if (!data.length) return message.warning('无数据可导出');
+
     const timestamps = data.map(item => new Date(item.timestamp).getTime());
     const minStr = dayjs(Math.min(...timestamps)).format('YYYYMMDD');
     const maxStr = dayjs(Math.max(...timestamps)).format('YYYYMMDD');
@@ -113,13 +134,16 @@ function HomePage() {
 
   const handleFinish = async (values) => {
     try {
-      const payload = { ...values, timestamp: values.timestamp ? values.timestamp.toISOString() : new Date().toISOString() };
+      const payload = {
+        ...values,
+        timestamp: values.timestamp ? values.timestamp.toISOString() : new Date().toISOString()
+      };
 
       if (editingId) {
-        await axios.put(`/api/transactions/${editingId}`, payload);
+        await updateTransaction(editingId, payload);
         message.success('更新成功');
       } else {
-        await axios.post('/api/transactions', payload);
+        await createTransaction(payload);
         message.success('保存成功');
       }
 
@@ -127,9 +151,7 @@ function HomePage() {
       form.resetFields();
       setEditingId(null);
       loadTransactions();
-    } catch (e) {
-      message.error(e.message);
-    }
+    } catch (e) { }
   };
 
   const showModal = () => {
@@ -143,7 +165,6 @@ function HomePage() {
   const handleEdit = (record) => {
     setEditingId(record.id);
     setCurrentType(record.type);
-
     form.setFieldsValue({
       type: record.type,
       category: record.category,
@@ -151,7 +172,6 @@ function HomePage() {
       description: record.description,
       timestamp: dayjs(record.timestamp),
     });
-
     setModalVisible(true);
   };
 
@@ -159,7 +179,7 @@ function HomePage() {
     {
       title: '收支类型', dataIndex: 'type', width: 100, align: 'center',
       render: (type) => (
-        <Tag color={type === 'income' ? 'success' : 'error'} style={{ borderRadius: 4, background: 'transparent', borderColor: type === 'income' ? token.colorSuccess : token.colorError, color: type === 'income' ? token.colorSuccess : token.colorError }}>
+        <Tag color={type === 'income' ? 'success' : 'error'} bordered={false}>
           {type === 'income' ? '收入' : '支出'}
         </Tag>
       ),
@@ -185,7 +205,7 @@ function HomePage() {
         const budgets = JSON.parse(localStorage.getItem('finance_budgets') || '{}');
         const limit = budgets[record.category];
         if (!limit) return <Tooltip title="未设置"><QuestionCircleOutlined style={{ color: token.colorTextSecondary }} /></Tooltip>;
-        return record.amount > limit ? <Tag color="error" bordered={false}>超支</Tag> : <Tag color="success" variant={false}>正常</Tag>;
+        return record.amount > limit ? <Tag color="error" bordered={false}>超支</Tag> : <Tag color="success" bordered={false}>正常</Tag>;
       }
     },
     { title: '备注', dataIndex: 'description', ellipsis: true, render: t => <span style={{ color: token.colorTextSecondary }}>{t || '-'}</span> },
@@ -194,11 +214,7 @@ function HomePage() {
       title: '操作', key: 'action', width: 120, align: 'center',
       render: (_, record) => (
         <Space>
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          />
+          <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
           <Popconfirm title="删除?" onConfirm={() => handleDelete(record.id)}>
             <Button type="text" danger icon={<DeleteOutlined />} />
           </Popconfirm>
@@ -213,6 +229,7 @@ function HomePage() {
 
   return (
     <div style={{ margin: '0 auto', marginTop: 24 }}>
+      {/* 搜索栏 */}
       <Card variant="borderless" style={{ marginBottom: 24 }} styles={{ body: { padding: '20px 24px' } }}>
         <Row gutter={[24, 16]} align="middle">
           <Col xs={24} sm={12} md={6}><Input placeholder="搜索..." prefix={<SearchOutlined style={{ color: token.colorTextSecondary }} />} value={searchText} onChange={e => setSearchText(e.target.value)} allowClear /></Col>
@@ -231,69 +248,31 @@ function HomePage() {
                   {currentMobileData.map((item) => {
                     const isIncome = item.type === 'income';
                     const Icon = CATEGORY_ICONS[item.category] || <AppstoreOutlined />;
-
                     return (
-                      <Card
-                        key={item.id}
-                        size="small"
-                        style={{ width: '100%', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
-                        styles={{ body: { padding: '12px' } }}
-                      >
+                      <Card key={item.id} size="small" style={{ width: '100%', borderRadius: 8 }} styles={{ body: { padding: '12px' } }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <Space>
-                            <Avatar
-                              size={32}
-                              icon={Icon}
-                              style={{ backgroundColor: token.colorBgLayout, color: token.colorText, border: `1px solid ${token.colorBorder}` }}
-                            />
+                            <Avatar size={32} icon={Icon} style={{ backgroundColor: token.colorBgLayout, color: token.colorText, border: `1px solid ${token.colorBorder}` }} />
                             <Text strong style={{ fontSize: 16 }}>{item.category}</Text>
-                            {item.type === 'expense' && (
-                              (() => {
-                                const budgets = JSON.parse(localStorage.getItem('finance_budgets') || '{}');
-                                const limit = budgets[item.category];
-                                return (limit && item.amount > limit) ? <Tag color="error" style={{ marginRight: 0 }}>超支</Tag> : null;
-                              })()
-                            )}
                           </Space>
                           <span className="font-mono" style={{ color: isIncome ? token.colorSuccess : token.colorError, fontWeight: 'bold', fontSize: 18 }}>
                             {isIncome ? '+' : '-'} {Number(item.amount).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
-
-                        {item.description && (
-                          <div style={{ marginBottom: 8, color: token.colorTextSecondary, fontSize: 13, background: token.colorBgLayout, padding: '4px 8px', borderRadius: 4 }}>
-                            {item.description}
-                          </div>
-                        )}
-
+                        {item.description && <div style={{ marginBottom: 8, color: token.colorTextSecondary, fontSize: 13, background: token.colorBgLayout, padding: '4px 8px', borderRadius: 4 }}>{item.description}</div>}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {dayjs(item.timestamp).format('YYYY-MM-DD HH:mm')}
-                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(item.timestamp).format('YYYY-MM-DD HH:mm')}</Text>
                           <Space>
                             <Button size="small" type="text" icon={<EditOutlined />} onClick={() => handleEdit(item)}>编辑</Button>
-                            <Popconfirm title="确认删除此记录?" onConfirm={() => handleDelete(item.id)} okText="删除" cancelText="取消">
-                              <Button size="small" type="text" danger icon={<DeleteOutlined />}>删除</Button>
-                            </Popconfirm>
+                            <Popconfirm title="确认删除?" onConfirm={() => handleDelete(item.id)}><Button size="small" type="text" danger icon={<DeleteOutlined />}>删除</Button></Popconfirm>
                           </Space>
                         </div>
                       </Card>
                     );
                   })}
-
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, width: '100%' }}>
-                    <Pagination
-                      simple
-                      current={currentPage}
-                      pageSize={pageSize}
-                      total={displayData.length}
-                      onChange={(page) => setCurrentPage(page)}
-                    />
-                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}><Pagination simple current={currentPage} pageSize={pageSize} total={displayData.length} onChange={setCurrentPage} /></div>
                 </div>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '20px', color: token.colorTextSecondary }}>暂无数据</div>
-              )}
+              ) : <div style={{ textAlign: 'center', padding: '20px', color: token.colorTextSecondary }}>暂无数据</div>}
             </div>
           ) : (
             <Table
@@ -306,15 +285,10 @@ function HomePage() {
                 current: currentPage,
                 pageSize: pageSize,
                 total: displayData.length,
-                pageSizeOptions: ['10', '20', '50', '100'],
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条 / 共 ${total} 条`,
-                placement: ['bottomCenter'],
-                onChange: (p, s) => {
-                  setCurrentPage(p);
-                  setPageSize(s);
-                }
+                showTotal: (total) => `共 ${total} 条`,
+                onChange: (p, s) => { setCurrentPage(p); setPageSize(s); }
               }}
             />
           )}
