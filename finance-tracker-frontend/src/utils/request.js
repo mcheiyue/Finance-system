@@ -31,6 +31,7 @@ service.interceptors.response.use(
             message.error(res.message || '系统繁忙');
 
             if (res.code === 401) {
+                handleLoginExpired();
             }
 
             return Promise.reject(new Error(res.message || 'Error'));
@@ -39,10 +40,23 @@ service.interceptors.response.use(
         }
     },
     (error) => {
+        const status = error.response?.status;
         const msg = error.response?.data?.message || '网络请求失败';
-        message.error(msg);
+
+        if (status === 401) {
+            message.error('登录已过期，请重新登录');
+            handleLoginExpired();
+        } else {
+            message.error(msg);
+        }
+
         return Promise.reject(error);
     }
 );
+
+function handleLoginExpired() {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+}
 
 export default service;
