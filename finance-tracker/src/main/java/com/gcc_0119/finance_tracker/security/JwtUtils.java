@@ -2,6 +2,7 @@ package com.gcc_0119.finance_tracker.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
@@ -11,8 +12,12 @@ import java.util.Date;
 
 @Component
 public class JwtUtils {
-    private final String jwtSecret = "MySuperSecretKeyForFinanceTrackerApplication2025ChangeMe";
-    private final int jwtExpirationMs = 86400000; 
+    
+    @Value("${app.jwtSecret}")
+    private String jwtSecret;
+
+    @Value("${app.jwtExpirationMs}")
+    private int jwtExpirationMs;
 
     private Key key() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());

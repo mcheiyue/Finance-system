@@ -7,7 +7,17 @@
       "request": "launch",
       "mainClass": "com.gcc_0119.finance_tracker.FinanceTrackerApplication",
       "projectName": "finance-tracker",
-      "preLaunchTask": "Start Frontend" // 启动后端前，先执行前端任务
+      "preLaunchTask": "Start Frontend", 
+      "env": {
+        // 本地开发用的数据库地址 (可以使用本地 MongoDB 或测试用的 Atlas 地址)
+        "MONGODB_URI": "mongodb+srv://finuser:REMOVED_SECRET@cluster0.exkzvk1.mongodb.net/finance_db?retryWrites=true&w=majority",
+        
+        // 本地开发用的 JWT 密钥 (随便填一个用于测试即可)
+        "JWT_SECRET": "MySuperSecretKeyForFinanceTrackerApplication2025ChangeMe",
+        
+        // 本地前端地址 (Vite 默认是 5173)
+        "ALLOWED_ORIGINS": "http://localhost:5173" 
+      }
     }
   ]
 }
