@@ -13,7 +13,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      setUser({ name: 'User' });
+      // 简单恢复会话，如果需要更严谨，可以请求后端 /api/users/me
+      setUser({ name: 'User' }); 
     }
     setLoading(false);
   }, []);
@@ -53,8 +54,19 @@ export const AuthProvider = ({ children }) => {
     message.success('已退出登录');
   };
 
+  // 核心修复：添加 isAuthenticated 属性
+  // 通过判断 user 是否存在来决定是否已认证
+  const value = {
+    user,
+    login,
+    register,
+    logout,
+    loading,
+    isAuthenticated: !!user, // <--- 加上这一句！!!user 把对象转为布尔值
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={value}>
       {!loading && children}
     </AuthContext.Provider>
   );
