@@ -1,123 +1,63 @@
-import React, { createContext, useContext, useState, useLayoutEffect } from 'react';
-import axios from 'axios';
-import { App } from 'antd';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import axios from './utils/request';
+import { message } from 'antd';
+import { useNavigate } from 'react-router-dom';
 
-const AuthContext = createContext();
-
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
-export const useAuth = () => useContext(AuthContext);
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const location = useLocation();
-  const { message } = App.useApp();
 
-  const [user, setUser] = useState(() => {
+  useEffect(() => {
     const token = localStorage.getItem('token');
-    const username = localStorage.getItem('username');
-    const roles = localStorage.getItem('roles');
-
-    if (token && token !== 'undefined') {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      return { token, username, roles: JSON.parse(roles || '[]') };
+    if (token) {
+      setUser({ name: 'User' });
     }
-    return null;
-  });
-
-  useLayoutEffect(() => {
-    const reqInterceptor = axios.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('token');
-        if (token && token !== 'undefined') {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    const resInterceptor = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response && error.response.status === 401) {
-          if (location.pathname !== '/login') {
-            logout(false);
-            message.error('登录已过期，请重新登录');
-          }
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    return () => {
-      axios.interceptors.request.eject(reqInterceptor);
-      axios.interceptors.response.eject(resInterceptor);
-    };
-  }, [location.pathname]);
+    setLoading(false);
+  }, []);
 
   const login = async (username, password) => {
     try {
-      delete axios.defaults.headers.common['Authorization'];
+      const data = await axios.post('/auth/login', { username, password });
 
-      const res = await axios.post(`${BASE_URL}/api/auth/login`, { username, password });
-
-      const apiRes = res.data;
-      if (apiRes.code !== 200) {
-        throw new Error(apiRes.message || '登录异常');
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        setUser({
+          username: data.username,
+          roles: data.roles
+        });
+        message.success('登录成功');
+        navigate('/');
       }
-
-      const { token, username: name, roles } = apiRes.data;
-
-      if (!token) throw new Error('Token 获取失败');
-
-      localStorage.setItem('token', token);
-      localStorage.setItem('username', name);
-      localStorage.setItem('roles', JSON.stringify(roles));
-
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-      setUser({ token, username: name, roles });
-      message.success('登录成功！');
-      navigate('/');
-      return true;
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || '登录失败，请检查账号密码';
-      message.error(errorMsg);
-      return false;
+    } catch (error) {
+      console.error('Login failed:', error);
     }
   };
 
   const register = async (username, email, password) => {
     try {
-      const res = await axios.post(`${BASE_URL}/api/auth/register`, { username, email, password });
-
-      if (res.data.code !== 200) {
-        throw new Error(res.data.message);
-      }
-
+      await axios.post('/auth/register', { username, email, password });
       message.success('注册成功，请登录');
       navigate('/login');
-      return true;
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || '注册失败';
-      message.error(errorMsg);
-      return false;
+    } catch (error) {
+      console.error('Register failed:', error);
     }
   };
 
-  const logout = (showMessage = true) => {
-    localStorage.clear();
-    delete axios.defaults.headers.common['Authorization'];
+  const logout = () => {
+    localStorage.removeItem('token');
     setUser(null);
-    if (showMessage) message.info('已退出登录');
     navigate('/login');
+    message.success('已退出登录');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user }}>
-      {children}
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
+
+export const useAuth = () => useContext(AuthContext);

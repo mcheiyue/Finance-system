@@ -1,5 +1,6 @@
 package com.gcc_0119.finance_tracker.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -19,6 +20,7 @@ public class User {
     @Indexed(unique = true) 
     private String email;
 
+    @JsonIgnore
     private String password; 
 
     private Set<String> roles; 
