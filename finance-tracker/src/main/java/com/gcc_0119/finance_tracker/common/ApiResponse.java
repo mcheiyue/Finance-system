@@ -1,20 +1,17 @@
 package com.gcc_0119.finance_tracker.common;
 
-import lombok.Getter;
+import lombok.Data;
 
-@Getter
+@Data
 public class ApiResponse<T> {
-
-    private final int code;
-    private final String message;
-    private final T data;
-    private final long timestamp;
+    private int code;
+    private String message;
+    private T data;
 
     private ApiResponse(int code, String message, T data) {
         this.code = code;
         this.message = message;
         this.data = data;
-        this.timestamp = System.currentTimeMillis();
     }
 
     public static <T> ApiResponse<T> success(T data) {
@@ -23,6 +20,10 @@ public class ApiResponse<T> {
 
     public static <T> ApiResponse<T> success(String message, T data) {
         return new ApiResponse<>(200, message, data);
+    }
+
+    public static <T> ApiResponse<T> success(String message) {
+        return new ApiResponse<>(200, message, null);
     }
 
     public static <T> ApiResponse<T> error(int code, String message) {

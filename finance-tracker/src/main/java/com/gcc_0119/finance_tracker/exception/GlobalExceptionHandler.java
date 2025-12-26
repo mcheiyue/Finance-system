@@ -9,10 +9,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(BusinessException.class)
+    @ResponseStatus(HttpStatus.OK) 
+    public ApiResponse<String> handleBusinessException(BusinessException e) {
+        return ApiResponse.error(e.getCode(), e.getMessage());
+    }
+
     @ExceptionHandler(RuntimeException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<String> handleRuntimeException(RuntimeException e) {
-        return ApiResponse.error(400, e.getMessage());
+        e.printStackTrace(); 
+        return ApiResponse.error(400, "请求处理异常: " + e.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
