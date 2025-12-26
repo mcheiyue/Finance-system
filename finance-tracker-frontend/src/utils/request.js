@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { message } from 'antd';
 
+const baseURL = import.meta.env.VITE_API_URL 
+    ? `${import.meta.env.VITE_API_URL}/api` 
+    : '/api';
+
 const service = axios.create({
-    baseURL: '/api',
+    baseURL: baseURL, 
     timeout: 10000,
 });
 
