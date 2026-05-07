@@ -20,3 +20,16 @@ mvnw.cmd
 # 忽略日志
 logs/
 *.log
+
+# 忽略敏感配置文件
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+application-local.*
+*.sqlite
+*.db
+docker-compose.override.yml
