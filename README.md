@@ -9,6 +9,35 @@
 
 UI 设计摒弃了传统的繁杂风格，采用 Ant Design 6.0 构建了 "极简灰" 界面，并完美适配 Dark Mode。
 
+## 🖼️ 预览
+
+### 登录页
+
+<table>
+<tr>
+<td align="center"><img src="./screenshots/login-light.png" width="400" alt="登录页-浅色"><br>浅色模式</td>
+<td align="center"><img src="./screenshots/login-dark.png" width="400" alt="登录页-深色"><br>深色模式</td>
+</tr>
+</table>
+
+### 账单明细
+
+<table>
+<tr>
+<td align="center"><img src="./screenshots/transactions-light.png" width="400" alt="账单明细-浅色"><br>浅色模式</td>
+<td align="center"><img src="./screenshots/transactions-dark.png" width="400" alt="账单明细-深色"><br>深色模式</td>
+</tr>
+</table>
+
+### 统计报表
+
+<table>
+<tr>
+<td align="center"><img src="./screenshots/statistics-light.png" width="400" alt="统计报表-浅色"><br>浅色模式</td>
+<td align="center"><img src="./screenshots/statistics-dark.png" width="400" alt="统计报表-深色"><br>深色模式</td>
+</tr>
+</table>
+
 ## ✨ 核心功能
 
 ### 1. 用户认证与安全 (Authentication)
