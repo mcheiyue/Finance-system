@@ -28,8 +28,7 @@ export default function ProfilePage() {
       await changePassword(values);
       message.success('密码修改成功！下次登录请使用新密码。');
       form.resetFields();
-    } catch (err) {
-    }
+    } catch { /* 密码修改失败，静默处理 */ }
   };
 
   return (

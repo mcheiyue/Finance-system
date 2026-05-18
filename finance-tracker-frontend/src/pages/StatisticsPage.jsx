@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Tabs, Spin, Alert, Card, Button, Modal, Form, Select, InputNumber,
   message, Empty, Row, Col, theme, Space, Radio
@@ -24,7 +24,14 @@ function StatisticsPage() {
   const [budgetForm] = Form.useForm();
   const [dateRange, setDateRange] = useState(30);
 
-  const loadData = async () => {
+  const loadCategoryStats = useCallback(async (type) => {
+    try {
+      const res = await getStatsByCategory(type, dateRange);
+      setCategoryData(Object.entries(res).map(([c, t]) => ({ category: c, total: Number(t) })).sort((a, b) => b.total - a.total));
+    } catch (e) { console.error(e); }
+  }, [dateRange]);
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [typeRes, trendRes] = await Promise.all([
@@ -57,16 +64,9 @@ function StatisticsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange, loadCategoryStats]);
 
-  const loadCategoryStats = async (type) => {
-    try {
-      const res = await getStatsByCategory(type, dateRange);
-      setCategoryData(Object.entries(res).map(([c, t]) => ({ category: c, total: Number(t) })).sort((a, b) => b.total - a.total));
-    } catch (e) { console.error(e); }
-  };
-
-  useEffect(() => { loadData(); }, [dateRange]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleBudgetFinish = (values) => {
     const budgets = JSON.parse(localStorage.getItem('finance_budgets') || '{}');

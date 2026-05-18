@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Button, Table, Modal, Form, InputNumber, Select, Radio, Input,
-  message, Spin, Card, Tag, Tooltip, Popconfirm, Row, Col, Space,
+  Spin, Card, Tag, Tooltip, Popconfirm, Row, Col, Space,
   DatePicker, theme, Typography, Avatar, App, Grid, Pagination
 } from 'antd';
 import {
@@ -92,7 +92,7 @@ function HomePage() {
       await deleteTransaction(id);
       message.success('删除成功');
       loadTransactions();
-    } catch (error) { }
+    } catch { /* 删除失败，静默处理 */ }
   };
 
   const handleBatchDelete = () => {
@@ -107,7 +107,7 @@ function HomePage() {
           message.success('批量删除成功');
           setSelectedRowKeys([]);
           loadTransactions();
-        } catch (e) { }
+        } catch { /* 批量删除失败，静默处理 */ }
       },
     });
   };
@@ -151,7 +151,7 @@ function HomePage() {
       form.resetFields();
       setEditingId(null);
       loadTransactions();
-    } catch (e) { }
+    } catch { /* 保存失败，静默处理 */ }
   };
 
   const showModal = () => {

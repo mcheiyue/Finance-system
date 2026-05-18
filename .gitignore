@@ -16,6 +16,12 @@ target/
 mvnw
 mvnw.cmd
 .mvn/
+!finance-tracker/mvnw
+!finance-tracker/mvnw.cmd
+!finance-tracker/.mvn/
+!finance-tracker/.mvn/wrapper/
+!finance-tracker/.mvn/wrapper/maven-wrapper.properties
+finance-tracker/.mvn/wrapper/maven-wrapper.jar
 
 # 忽略日志
 logs/

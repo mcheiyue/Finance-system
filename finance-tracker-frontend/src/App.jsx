@@ -23,7 +23,7 @@ const PrivateRoute = ({ children }) => {
 
 export default function App() {
   const location = useLocation();
-  const { themeMode, changeTheme, isDarkMode } = useTheme();
+  const { themeMode, changeTheme } = useTheme();
   const { token } = theme.useToken();
   const { user, logout } = useAuth();
   const [isMobile, setIsMobile] = React.useState(false);
@@ -87,7 +87,7 @@ export default function App() {
     background: token.colorBgContainer,
     borderBottom: `1px solid ${token.colorBorderSecondary}`,
     padding: '0 24px',
-    zIndex: 20, transition: 'all 0.3s',
+    transition: 'all 0.3s',
 
     position: 'sticky',
     top: 0,

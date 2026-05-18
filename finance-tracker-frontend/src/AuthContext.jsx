@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext } from 'react';
 import axios from './utils/request';
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
@@ -6,18 +6,13 @@ import { useNavigate } from 'react-router-dom';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // 简单恢复会话，如果需要更严谨，可以请求后端 /api/users/me
-      setUser({ name: 'User' }); 
+  const [user, setUser] = useState(() => {
+    if (localStorage.getItem('token')) {
+      return { name: 'User' };
     }
-    setLoading(false);
-  }, []);
+    return null;
+  });
+  const navigate = useNavigate();
 
   const login = async (username, password) => {
     try {
@@ -61,13 +56,13 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    loading,
+    loading: false,
     isAuthenticated: !!user, // <--- 加上这一句！!!user 把对象转为布尔值
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
