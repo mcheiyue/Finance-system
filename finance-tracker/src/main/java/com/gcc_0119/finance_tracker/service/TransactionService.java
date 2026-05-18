@@ -28,18 +28,21 @@ public class TransactionService {
     private TransactionDTO convertToDTO(Transaction t) {
         TransactionDTO dto = new TransactionDTO();
         dto.setId(t.getId());
-        dto.setType(t.getType());
-        dto.setCategory(t.getCategory());
+        dto.setFromAccountId(t.getFromAccountId());
+        dto.setToAccountId(t.getToAccountId());
         dto.setAmount(t.getAmount());
         dto.setDescription(t.getDescription());
+        dto.setReversalOfId(t.getReversalOfId());
+        dto.setReversed(t.isReversed());
         dto.setTimestamp(t.getTimestamp());
+        dto.setCreatedAt(t.getCreatedAt());
         return dto;
     }
 
     private Transaction convertToEntity(TransactionDTO dto) {
         Transaction t = new Transaction();
-        t.setType(dto.getType());
-        t.setCategory(dto.getCategory());
+        t.setFromAccountId(dto.getFromAccountId());
+        t.setToAccountId(dto.getToAccountId());
         t.setAmount(dto.getAmount());
         t.setDescription(dto.getDescription());
         t.setTimestamp(dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now());
@@ -73,8 +76,8 @@ public class TransactionService {
         Transaction existing = transactionRepository.findById(id).orElse(null);
         if (existing != null && existing.getUserId().equals(userId)) {
             existing.setAmount(transactionDTO.getAmount());
-            existing.setType(transactionDTO.getType());
-            existing.setCategory(transactionDTO.getCategory());
+            existing.setFromAccountId(transactionDTO.getFromAccountId());
+            existing.setToAccountId(transactionDTO.getToAccountId());
             existing.setDescription(transactionDTO.getDescription());
             existing.setTimestamp(transactionDTO.getTimestamp());
             return convertToDTO(transactionRepository.save(existing));

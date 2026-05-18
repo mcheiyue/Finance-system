@@ -8,8 +8,8 @@ import java.util.List;
 
 @Repository
 public interface TransactionRepository extends MongoRepository<Transaction, String> {
-    List<Transaction> findByType(String type);
-    List<Transaction> findByCategory(String category);
-    List<Transaction> findByTypeAndCategory(String type, String category);
     List<Transaction> findByUserId(String userId);
+    List<Transaction> findByFromAccountId(String fromAccountId);
+    List<Transaction> findByToAccountId(String toAccountId);
+    List<Transaction> findByReversalOfId(String reversalOfId);
 }
