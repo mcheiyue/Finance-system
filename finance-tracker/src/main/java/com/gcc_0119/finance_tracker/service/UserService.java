@@ -18,6 +18,7 @@ public class UserService {
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder encoder;
     @Autowired private SecurityUtils securityUtils;
+    @Autowired private AccountService accountService;
 
     public void registerUser(String username, String email, String password) {
         if (userRepository.existsByUsername(username)) {
@@ -34,6 +35,7 @@ public class UserService {
         user.setRoles(Set.of("ROLE_USER"));
 
         userRepository.save(user);
+        accountService.initializePresetAccounts(user.getId());
     }
 
     public UserDTO getCurrentUserProfile() {
