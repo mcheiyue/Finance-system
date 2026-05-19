@@ -1,4 +1,4 @@
-name: Build
+name: Build and Push to GHCR
 
 on:
   push:
@@ -6,50 +6,76 @@ on:
   workflow_dispatch:
 
 env:
-  GHCR_IMAGE: ghcr.io/mcheiyue/finance-system
+  REGISTRY: ghcr.io
+  IMAGE_NAME: mcheiyue/finance-system
 
 jobs:
-  build-backend:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/build-push-action@v6
-        with:
-          context: ./finance-tracker
-          push: true
-          tags: |
-            ${{ env.GHCR_IMAGE }}:latest
-            ${{ env.GHCR_IMAGE }}:${{ github.sha }}
-
-  build-frontend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: finance-tracker-frontend/package-lock.json
 
-      - name: Install and build
+      - name: Install frontend dependencies
         working-directory: finance-tracker-frontend
-        run: |
-          npm ci
-          npm run build
+        run: npm ci
 
-      - uses: actions/upload-artifact@v4
+      - name: Build frontend
+        working-directory: finance-tracker-frontend
+        run: npm run build
+
+      - name: Copy frontend to backend static resources
+        run: |
+          mkdir -p finance-tracker/src/main/resources/static
+          cp -r finance-tracker-frontend/dist/* finance-tracker/src/main/resources/static/
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          name: frontend-dist
-          path: finance-tracker-frontend/dist
-          retention-days: 7
+          java-version: 21
+          distribution: temurin
+          cache: maven
+
+      - name: Build backend with Maven
+        working-directory: finance-tracker
+        run: ./mvnw clean package -DskipTests -B
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: finance-tracker
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
