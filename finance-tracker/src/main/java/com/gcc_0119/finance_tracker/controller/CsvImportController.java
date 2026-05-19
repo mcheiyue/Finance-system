@@ -7,6 +7,7 @@ import com.gcc_0119.finance_tracker.dto.TransactionDTO;
 import com.gcc_0119.finance_tracker.service.CsvImportService;
 import com.gcc_0119.finance_tracker.service.TransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,6 +38,7 @@ public class CsvImportController {
         }
     }
 
+    @Transactional
     @PostMapping("/confirm")
     public ApiResponse<List<TransactionDTO>> confirm(@RequestBody List<TransactionDTO> transactions) {
         String userId = securityUtils.getCurrentUserId();
