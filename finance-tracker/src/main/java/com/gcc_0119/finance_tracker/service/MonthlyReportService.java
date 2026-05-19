@@ -102,6 +102,8 @@ public class MonthlyReportService {
 
         BigDecimal amount = transaction.getAmount();
         Update update = new Update().inc("transactionCount", 1).set("updatedAt", LocalDateTime.now());
+        update.inc("accountBalances." + fromAccount.getId(), amount.negate());
+        update.inc("accountBalances." + toAccount.getId(), amount);
 
         if (fromAccount.getType() == AccountType.INCOME) {
             update.inc("totalIncome", amount);
@@ -126,7 +128,9 @@ public class MonthlyReportService {
         getOrCreateReport(originalTransaction.getUserId(), month);
 
         BigDecimal amount = originalTransaction.getAmount();
-        Update update = new Update().set("updatedAt", LocalDateTime.now());
+        Update update = new Update().inc("transactionCount", 1).set("updatedAt", LocalDateTime.now());
+        update.inc("accountBalances." + fromAccount.getId(), amount);
+        update.inc("accountBalances." + toAccount.getId(), amount.negate());
 
         if (fromAccount.getType() == AccountType.INCOME) {
             update.inc("totalIncome", amount.negate());

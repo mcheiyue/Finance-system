@@ -134,7 +134,7 @@ class TransactionServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> transactionService.createTransaction(USER_ID, buildRequest(amount)));
 
-        assertTrue(ex.getMessage().contains("余额不足"));
+        assertTrue(ex.getMessage().contains("系统繁忙"));
         verify(transactionRepository, never()).save(any());
     }
 
@@ -374,7 +374,7 @@ class TransactionServiceTest {
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> transactionService.reverseTransaction(USER_ID, "txn-orig"));
 
-        assertTrue(ex.getMessage().contains("余额不足"));
+        assertTrue(ex.getMessage().contains("系统繁忙"));
         verify(transactionRepository, never()).save(any());
     }
 

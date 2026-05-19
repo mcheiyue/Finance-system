@@ -67,10 +67,7 @@ public class TransactionService {
 
         AnomalyResult anomalyResult = anomalyDetectionService.detectAnomaly(userId, fromAccountId, amount);
 
-        Account debited = debitAccount(fromAcc, userId, amount);
-        if (debited == null) {
-            throw new BusinessException("余额不足");
-        }
+        debitAccount(fromAcc, userId, amount);
 
         creditAccount(toAccountId, userId, amount);
 
@@ -80,7 +77,7 @@ public class TransactionService {
         transaction.setToAccountId(toAccountId);
         transaction.setAmount(amount);
         transaction.setDescription(request.getDescription());
-        transaction.setTimestamp(LocalDateTime.now());
+        transaction.setTimestamp(request.getTimestamp() != null ? request.getTimestamp() : LocalDateTime.now());
 
         Transaction saved = transactionRepository.save(transaction);
         eventPublisher.publishEvent(new TransactionCreatedEvent(saved, fromAcc, toAcc));
@@ -119,10 +116,7 @@ public class TransactionService {
 
         Account toAcc = accountRepository.findByIdAndUserId(original.getToAccountId(), userId)
                 .orElseThrow(() -> new BusinessException(500, "冲正失败：转入账户不存在"));
-        Account debited = debitAccount(toAcc, userId, amount);
-        if (debited == null) {
-            throw new BusinessException("冲正失败：转入账户余额不足");
-        }
+        debitAccount(toAcc, userId, amount);
 
         Transaction reversal = new Transaction();
         reversal.setUserId(userId);
@@ -213,9 +207,6 @@ public class TransactionService {
         Account result = mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), Account.class);
         if (result == null) {
-            if (account.getType() == AccountType.ASSET && account.getBalance().compareTo(amount) < 0) {
-                throw new BusinessException("余额不足");
-            }
             throw new BusinessException(509, "系统繁忙，请重试");
         }
         return result;

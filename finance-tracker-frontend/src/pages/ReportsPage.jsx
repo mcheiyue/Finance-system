@@ -8,6 +8,7 @@ import {
   FundOutlined, EyeOutlined, CalendarOutlined, BarChartOutlined
 } from '@ant-design/icons';
 import { getMonthlyReports } from '../api/report';
+import { getAccounts } from '../api/account';
 
 function ReportsPage() {
   const { token } = theme.useToken();
@@ -18,6 +19,11 @@ function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [detailRecord, setDetailRecord] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+
+  useEffect(() => {
+    getAccounts().then(setAccounts).catch(() => {});
+  }, []);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -172,21 +178,18 @@ function ReportsPage() {
   const getBalanceData = (record) => {
     if (!record || !record.accountBalances) return [];
     const balances = record.accountBalances;
-    if (balances instanceof Map) {
-      return Array.from(balances.entries()).map(([account, balance], index) => ({
+    const entries = balances instanceof Map
+      ? Array.from(balances.entries())
+      : Object.entries(balances);
+    
+    return entries.map(([accountId, balance], index) => {
+      const account = accounts.find(a => a.id === accountId);
+      return {
         key: index,
-        account,
+        account: account ? account.name : accountId.substring(0, 8) + '…',
         balance,
-      }));
-    }
-    if (typeof balances === 'object') {
-      return Object.entries(balances).map(([account, balance], index) => ({
-        key: index,
-        account,
-        balance,
-      }));
-    }
-    return [];
+      };
+    });
   };
 
   const StatCard = ({ title, value, color, icon, prefix }) => (
