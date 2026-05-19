@@ -1,5 +1,6 @@
 package com.gcc_0119.finance_tracker.service;
 
+import com.gcc_0119.finance_tracker.dto.PaginatedResponse;
 import com.gcc_0119.finance_tracker.dto.TransactionDTO;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.Account;
@@ -7,6 +8,7 @@ import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.TransactionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -138,6 +140,34 @@ public class TransactionService {
                 .sorted((t1, t2) -> t1.getTimestamp().compareTo(t2.getTimestamp()))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 分页查询交易
+     */
+    public PaginatedResponse<TransactionDTO> getTransactionsPaginated(String userId, int page, int size,
+                                                                       String fromAccountId, String toAccountId) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("userId").is(userId));
+
+        if (fromAccountId != null) {
+            query.addCriteria(Criteria.where("fromAccountId").is(fromAccountId));
+        }
+        if (toAccountId != null) {
+            query.addCriteria(Criteria.where("toAccountId").is(toAccountId));
+        }
+
+        long total = mongoTemplate.count(query, Transaction.class);
+
+        query.with(Sort.by(Sort.Direction.DESC, "timestamp"));
+        query.skip((long) page * size).limit(size);
+
+        List<Transaction> transactions = mongoTemplate.find(query, Transaction.class);
+        List<TransactionDTO> dtos = transactions.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+
+        return PaginatedResponse.of(dtos, page, size, total);
     }
 
     private Account debitAccount(String accountId, String userId, BigDecimal amount) {

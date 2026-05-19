@@ -2,6 +2,7 @@ package com.gcc_0119.finance_tracker.controller;
 
 import com.gcc_0119.finance_tracker.common.ApiResponse;
 import com.gcc_0119.finance_tracker.common.SecurityUtils;
+import com.gcc_0119.finance_tracker.dto.PaginatedResponse;
 import com.gcc_0119.finance_tracker.dto.TransactionDTO;
 import com.gcc_0119.finance_tracker.service.TransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,9 +34,15 @@ public class TransactionController {
     }
 
     @GetMapping
-    public ApiResponse<List<TransactionDTO>> getAllTransactions() {
+    public ApiResponse<PaginatedResponse<TransactionDTO>> getTransactions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String fromAccountId,
+            @RequestParam(required = false) String toAccountId) {
         String userId = securityUtils.getCurrentUserId();
-        return ApiResponse.success(transactionService.getAllTransactions(userId));
+        PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
+                userId, page, size, fromAccountId, toAccountId);
+        return ApiResponse.success(result);
     }
 
     @GetMapping("/{id}")

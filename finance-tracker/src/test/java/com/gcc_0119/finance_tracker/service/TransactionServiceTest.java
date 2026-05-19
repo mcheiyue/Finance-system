@@ -1,5 +1,6 @@
 package com.gcc_0119.finance_tracker.service;
 
+import com.gcc_0119.finance_tracker.dto.PaginatedResponse;
 import com.gcc_0119.finance_tracker.dto.TransactionDTO;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.Account;
@@ -20,6 +21,9 @@ import org.springframework.data.mongodb.core.query.UpdateDefinition;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -285,5 +289,119 @@ class TransactionServiceTest {
 
         assertTrue(ex.getMessage().contains("余额不足"));
         verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void getTransactionsPaginated_returnsCorrectPaginationInfo() {
+        Transaction txn1 = new Transaction();
+        txn1.setId("txn-1");
+        txn1.setUserId(USER_ID);
+        txn1.setFromAccountId(FROM_ACCOUNT_ID);
+        txn1.setToAccountId(TO_ACCOUNT_ID);
+        txn1.setAmount(new BigDecimal("100.00"));
+        txn1.setTimestamp(LocalDateTime.now().minusDays(1));
+
+        Transaction txn2 = new Transaction();
+        txn2.setId("txn-2");
+        txn2.setUserId(USER_ID);
+        txn2.setFromAccountId(FROM_ACCOUNT_ID);
+        txn2.setToAccountId(TO_ACCOUNT_ID);
+        txn2.setAmount(new BigDecimal("200.00"));
+        txn2.setTimestamp(LocalDateTime.now());
+
+        when(mongoTemplate.count(any(Query.class), eq(Transaction.class))).thenReturn(2L);
+        when(mongoTemplate.find(any(Query.class), eq(Transaction.class)))
+                .thenReturn(Arrays.asList(txn2, txn1));
+
+        PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
+                USER_ID, 0, 20, null, null);
+
+        assertEquals(2, result.getContent().size());
+        assertEquals(0, result.getPage());
+        assertEquals(20, result.getSize());
+        assertEquals(2L, result.getTotalElements());
+        assertEquals(1, result.getTotalPages());
+        assertEquals("txn-2", result.getContent().get(0).getId());
+        assertEquals("txn-1", result.getContent().get(1).getId());
+    }
+
+    @Test
+    void getTransactionsPaginated_withFromAccountIdFilter() {
+        Transaction txn = new Transaction();
+        txn.setId("txn-1");
+        txn.setUserId(USER_ID);
+        txn.setFromAccountId(FROM_ACCOUNT_ID);
+        txn.setToAccountId(TO_ACCOUNT_ID);
+        txn.setAmount(new BigDecimal("100.00"));
+        txn.setTimestamp(LocalDateTime.now());
+
+        when(mongoTemplate.count(any(Query.class), eq(Transaction.class))).thenReturn(1L);
+        when(mongoTemplate.find(any(Query.class), eq(Transaction.class)))
+                .thenReturn(Collections.singletonList(txn));
+
+        PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
+                USER_ID, 0, 20, FROM_ACCOUNT_ID, null);
+
+        assertEquals(1, result.getContent().size());
+        assertEquals(FROM_ACCOUNT_ID, result.getContent().get(0).getFromAccountId());
+    }
+
+    @Test
+    void getTransactionsPaginated_withToAccountIdFilter() {
+        Transaction txn = new Transaction();
+        txn.setId("txn-1");
+        txn.setUserId(USER_ID);
+        txn.setFromAccountId(FROM_ACCOUNT_ID);
+        txn.setToAccountId(TO_ACCOUNT_ID);
+        txn.setAmount(new BigDecimal("100.00"));
+        txn.setTimestamp(LocalDateTime.now());
+
+        when(mongoTemplate.count(any(Query.class), eq(Transaction.class))).thenReturn(1L);
+        when(mongoTemplate.find(any(Query.class), eq(Transaction.class)))
+                .thenReturn(Collections.singletonList(txn));
+
+        PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
+                USER_ID, 0, 20, null, TO_ACCOUNT_ID);
+
+        assertEquals(1, result.getContent().size());
+        assertEquals(TO_ACCOUNT_ID, result.getContent().get(0).getToAccountId());
+    }
+
+    @Test
+    void getTransactionsPaginated_emptyResult() {
+        when(mongoTemplate.count(any(Query.class), eq(Transaction.class))).thenReturn(0L);
+        when(mongoTemplate.find(any(Query.class), eq(Transaction.class)))
+                .thenReturn(Collections.emptyList());
+
+        PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
+                USER_ID, 0, 20, null, null);
+
+        assertTrue(result.getContent().isEmpty());
+        assertEquals(0L, result.getTotalElements());
+        assertEquals(0, result.getTotalPages());
+    }
+
+    @Test
+    void getTransactionsPaginated_secondPage() {
+        Transaction txn = new Transaction();
+        txn.setId("txn-3");
+        txn.setUserId(USER_ID);
+        txn.setFromAccountId(FROM_ACCOUNT_ID);
+        txn.setToAccountId(TO_ACCOUNT_ID);
+        txn.setAmount(new BigDecimal("300.00"));
+        txn.setTimestamp(LocalDateTime.now().minusDays(2));
+
+        when(mongoTemplate.count(any(Query.class), eq(Transaction.class))).thenReturn(3L);
+        when(mongoTemplate.find(any(Query.class), eq(Transaction.class)))
+                .thenReturn(Collections.singletonList(txn));
+
+        PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
+                USER_ID, 1, 2, null, null);
+
+        assertEquals(1, result.getContent().size());
+        assertEquals(1, result.getPage());
+        assertEquals(2, result.getSize());
+        assertEquals(3L, result.getTotalElements());
+        assertEquals(2, result.getTotalPages());
     }
 }
