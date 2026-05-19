@@ -10,8 +10,13 @@ import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.MonthlyReportRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.event.EventListener;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -29,6 +34,9 @@ public class MonthlyReportService {
 
     @Autowired
     private AccountRepository accountRepository;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM");
 
@@ -81,24 +89,20 @@ public class MonthlyReportService {
      */
     public void onTransactionCreated(Transaction transaction, Account fromAccount, Account toAccount) {
         String month = transaction.getTimestamp().format(MONTH_FORMAT);
-        MonthlyReport report = getOrCreateReport(transaction.getUserId(), month);
+        getOrCreateReport(transaction.getUserId(), month);
 
         BigDecimal amount = transaction.getAmount();
+        Update update = new Update().inc("transactionCount", 1).set("updatedAt", LocalDateTime.now());
 
-        // 判断交易类型并更新总额
         if (fromAccount.getType() == AccountType.INCOME) {
-            // 收入交易：INCOME→ASSET，fromAccount 是 INCOME
-            report.setTotalIncome(report.getTotalIncome().add(amount));
+            update.inc("totalIncome", amount);
         } else if (toAccount.getType() == AccountType.EXPENSE) {
-            // 支出交易：ASSET→EXPENSE，toAccount 是 EXPENSE
-            report.setTotalExpense(report.getTotalExpense().add(amount));
+            update.inc("totalExpense", amount);
         }
 
-        // 更新交易计数
-        report.setTransactionCount(report.getTransactionCount() + 1);
-        report.setUpdatedAt(LocalDateTime.now());
-
-        monthlyReportRepository.save(report);
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("userId").is(transaction.getUserId()).and("month").is(month)),
+                update, MonthlyReport.class);
     }
 
     /**
@@ -109,22 +113,21 @@ public class MonthlyReportService {
      * @param toAccount 目标账户
      */
     public void onTransactionReversed(Transaction originalTransaction, Account fromAccount, Account toAccount) {
-        String month = originalTransaction.getTimestamp().format(MONTH_FORMAT);
-        MonthlyReport report = getOrCreateReport(originalTransaction.getUserId(), month);
+        String month = LocalDateTime.now().format(MONTH_FORMAT);
+        getOrCreateReport(originalTransaction.getUserId(), month);
 
         BigDecimal amount = originalTransaction.getAmount();
+        Update update = new Update().set("updatedAt", LocalDateTime.now());
 
-        // 冲正时反向更新
         if (fromAccount.getType() == AccountType.INCOME) {
-            report.setTotalIncome(report.getTotalIncome().subtract(amount));
+            update.inc("totalIncome", amount.negate());
         } else if (toAccount.getType() == AccountType.EXPENSE) {
-            report.setTotalExpense(report.getTotalExpense().subtract(amount));
+            update.inc("totalExpense", amount.negate());
         }
 
-        // 交易计数不变（冲正交易本身也是一个交易）
-        report.setUpdatedAt(LocalDateTime.now());
-
-        monthlyReportRepository.save(report);
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("userId").is(originalTransaction.getUserId()).and("month").is(month)),
+                update, MonthlyReport.class);
     }
 
     /**
@@ -142,12 +145,12 @@ public class MonthlyReportService {
                 .orElseThrow(() -> new BusinessException(404, "月报不存在"));
     }
 
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTransactionCreated(TransactionCreatedEvent event) {
         onTransactionCreated(event.getTransaction(), event.getFromAccount(), event.getToAccount());
     }
 
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTransactionReversed(TransactionReversedEvent event) {
         onTransactionReversed(event.getOriginalTransaction(), event.getFromAccount(), event.getToAccount());
     }

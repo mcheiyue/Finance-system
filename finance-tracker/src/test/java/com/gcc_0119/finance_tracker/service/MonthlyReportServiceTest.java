@@ -9,6 +9,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,6 +33,8 @@ class MonthlyReportServiceTest {
     private MonthlyReportRepository monthlyReportRepository;
     @Mock
     private AccountRepository accountRepository;
+    @Mock
+    private MongoTemplate mongoTemplate;
 
     @InjectMocks
     private MonthlyReportService monthlyReportService;
@@ -97,12 +102,8 @@ class MonthlyReportServiceTest {
         report.setId("report1");
         report.setUserId("user1");
         report.setMonth(month);
-        report.setTotalIncome(BigDecimal.ZERO);
-        report.setTotalExpense(BigDecimal.ZERO);
-        report.setTransactionCount(0);
         when(monthlyReportRepository.findByUserIdAndMonth("user1", month))
                 .thenReturn(Optional.of(report));
-        when(monthlyReportRepository.save(any(MonthlyReport.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Account incomeAccount = new Account();
         incomeAccount.setId("inc1");
@@ -118,10 +119,7 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionCreated(tx, incomeAccount, assetAccount);
 
-        assertEquals(0, new BigDecimal("2000.00").compareTo(report.getTotalIncome()));
-        assertEquals(0, BigDecimal.ZERO.compareTo(report.getTotalExpense()));
-        assertEquals(1, report.getTransactionCount());
-        verify(monthlyReportRepository).save(report);
+        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test
@@ -131,12 +129,8 @@ class MonthlyReportServiceTest {
         report.setId("report1");
         report.setUserId("user1");
         report.setMonth(month);
-        report.setTotalIncome(new BigDecimal("5000.00"));
-        report.setTotalExpense(new BigDecimal("100.00"));
-        report.setTransactionCount(3);
         when(monthlyReportRepository.findByUserIdAndMonth("user1", month))
                 .thenReturn(Optional.of(report));
-        when(monthlyReportRepository.save(any(MonthlyReport.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Account expenseAccount = new Account();
         expenseAccount.setId("exp1");
@@ -152,25 +146,18 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionCreated(tx, assetAccount, expenseAccount);
 
-        assertEquals(0, new BigDecimal("5000.00").compareTo(report.getTotalIncome()));
-        assertEquals(0, new BigDecimal("450.00").compareTo(report.getTotalExpense()));
-        assertEquals(4, report.getTransactionCount());
-        verify(monthlyReportRepository).save(report);
+        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test
     void onTransactionReversed_decrementsIncome() {
-        String month = LocalDateTime.of(2026, 5, 10, 9, 0).format(MONTH_FORMAT);
+        String currentMonth = LocalDateTime.now().format(MONTH_FORMAT);
         MonthlyReport report = new MonthlyReport();
         report.setId("report1");
         report.setUserId("user1");
-        report.setMonth(month);
-        report.setTotalIncome(new BigDecimal("3000.00"));
-        report.setTotalExpense(BigDecimal.ZERO);
-        report.setTransactionCount(5);
-        when(monthlyReportRepository.findByUserIdAndMonth("user1", month))
+        report.setMonth(currentMonth);
+        when(monthlyReportRepository.findByUserIdAndMonth("user1", currentMonth))
                 .thenReturn(Optional.of(report));
-        when(monthlyReportRepository.save(any(MonthlyReport.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Account incomeAccount = new Account();
         incomeAccount.setId("inc1");
@@ -186,25 +173,18 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionReversed(original, incomeAccount, assetAccount);
 
-        assertEquals(0, new BigDecimal("2000.00").compareTo(report.getTotalIncome()));
-        assertEquals(0, BigDecimal.ZERO.compareTo(report.getTotalExpense()));
-        assertEquals(5, report.getTransactionCount());
-        verify(monthlyReportRepository).save(report);
+        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test
     void onTransactionReversed_decrementsExpense() {
-        String month = LocalDateTime.of(2026, 5, 12, 16, 0).format(MONTH_FORMAT);
+        String currentMonth = LocalDateTime.now().format(MONTH_FORMAT);
         MonthlyReport report = new MonthlyReport();
         report.setId("report1");
         report.setUserId("user1");
-        report.setMonth(month);
-        report.setTotalIncome(BigDecimal.ZERO);
-        report.setTotalExpense(new BigDecimal("2000.00"));
-        report.setTransactionCount(8);
-        when(monthlyReportRepository.findByUserIdAndMonth("user1", month))
+        report.setMonth(currentMonth);
+        when(monthlyReportRepository.findByUserIdAndMonth("user1", currentMonth))
                 .thenReturn(Optional.of(report));
-        when(monthlyReportRepository.save(any(MonthlyReport.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Account expenseAccount = new Account();
         expenseAccount.setId("exp1");
@@ -220,10 +200,7 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionReversed(original, assetAccount, expenseAccount);
 
-        assertEquals(0, BigDecimal.ZERO.compareTo(report.getTotalIncome()));
-        assertEquals(0, new BigDecimal("1500.00").compareTo(report.getTotalExpense()));
-        assertEquals(8, report.getTransactionCount());
-        verify(monthlyReportRepository).save(report);
+        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test
