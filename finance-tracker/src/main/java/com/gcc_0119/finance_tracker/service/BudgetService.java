@@ -3,12 +3,13 @@ package com.gcc_0119.finance_tracker.service;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.Account;
 import com.gcc_0119.finance_tracker.model.Budget;
-import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.BudgetRepository;
-import com.gcc_0119.finance_tracker.repository.TransactionRepository;
+import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
@@ -27,8 +28,6 @@ public class BudgetService {
     private BudgetRepository budgetRepository;
     @Autowired
     private AccountRepository accountRepository;
-    @Autowired
-    private TransactionRepository transactionRepository;
     @Autowired
     private MongoTemplate mongoTemplate;
 
@@ -127,20 +126,25 @@ public class BudgetService {
             return Collections.emptyMap();
         }
 
-        // 查询条件：userId 匹配、fromAccountId 在列表中、时间范围匹配、未冲正
-        Criteria criteria = Criteria.where("userId").is(userId)
-                .and("fromAccountId").in(accountIds)
-                .and("timestamp").gte(start).lt(end)
-                .and("reversed").is(false);
+        Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("userId").is(userId)
+                        .and("toAccountId").in(accountIds)
+                        .and("timestamp").gte(start).lt(end)
+                        .and("reversed").is(false)),
+                Aggregation.group("toAccountId")
+                        .sum("amount").as("total")
+        );
 
-        List<Transaction> transactions = mongoTemplate.find(Query.query(criteria), Transaction.class);
+        AggregationResults<Document> results = mongoTemplate.aggregate(
+                aggregation, "transactions", Document.class);
 
-        // 按 fromAccountId 分组求和
-        return transactions.stream()
-                .collect(Collectors.groupingBy(
-                        Transaction::getFromAccountId,
-                        Collectors.reducing(BigDecimal.ZERO, Transaction::getAmount, BigDecimal::add)
-                ));
+        Map<String, BigDecimal> spending = new HashMap<>();
+        for (Document doc : results.getMappedResults()) {
+            String accountId = doc.getString("_id");
+            BigDecimal total = doc.get("total", org.bson.types.Decimal128.class).bigDecimalValue();
+            spending.put(accountId, total);
+        }
+        return spending;
     }
 
     /**

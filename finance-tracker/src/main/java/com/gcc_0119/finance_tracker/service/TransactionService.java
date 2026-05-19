@@ -16,6 +16,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -34,6 +35,7 @@ public class TransactionService {
     @Autowired
     private AnomalyDetectionService anomalyDetectionService;
 
+    @Transactional
     public TransactionDTO createTransaction(String userId, TransactionDTO request) {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("交易金额必须为正数");
@@ -52,14 +54,14 @@ public class TransactionService {
 
         BigDecimal amount = request.getAmount();
 
-        accountRepository.findByIdAndUserId(fromAccountId, userId)
+        Account fromAcc = accountRepository.findByIdAndUserId(fromAccountId, userId)
                 .orElseThrow(() -> new BusinessException(404, "转出账户不存在或无权访问"));
         accountRepository.findByIdAndUserId(toAccountId, userId)
                 .orElseThrow(() -> new BusinessException(404, "转入账户不存在或无权访问"));
 
         AnomalyResult anomalyResult = anomalyDetectionService.detectAnomaly(userId, fromAccountId, amount);
 
-        Account debited = debitAccount(fromAccountId, userId, amount);
+        Account debited = debitAccount(fromAccountId, userId, amount, fromAcc.getVersion());
         if (debited == null) {
             throw new BusinessException("余额不足");
         }
@@ -86,6 +88,7 @@ public class TransactionService {
         return dto;
     }
 
+    @Transactional
     public TransactionDTO reverseTransaction(String userId, String transactionId) {
         Transaction original = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new BusinessException(404, "交易记录不存在"));
@@ -99,14 +102,22 @@ public class TransactionService {
 
         BigDecimal amount = original.getAmount();
 
+        // 冲正：先退款到原转出账户（credit），再从原转入账户扣回（debit）
         Account refunded = creditAccount(original.getFromAccountId(), userId, amount);
         if (refunded == null) {
             throw new BusinessException(500, "冲正失败：退款操作异常");
         }
 
-        Account debited = debitAccount(original.getToAccountId(), userId, amount);
+        Account toAcc = accountRepository.findByIdAndUserId(original.getToAccountId(), userId)
+                .orElseThrow(() -> new BusinessException(500, "冲正失败：转入账户不存在"));
+        Account debited = debitAccount(original.getToAccountId(), userId, amount, toAcc.getVersion());
         if (debited == null) {
-            debitAccount(original.getFromAccountId(), userId, amount);
+            // 补偿回滚：从原转出账户扣回退款
+            Account fromAcc = accountRepository.findByIdAndUserId(original.getFromAccountId(), userId)
+                    .orElse(null);
+            if (fromAcc != null) {
+                debitAccount(original.getFromAccountId(), userId, amount, fromAcc.getVersion());
+            }
             throw new BusinessException("冲正失败：转入账户余额不足，已回滚");
         }
 
@@ -179,11 +190,12 @@ public class TransactionService {
         return PaginatedResponse.of(dtos, page, size, total);
     }
 
-    private Account debitAccount(String accountId, String userId, BigDecimal amount) {
+    private Account debitAccount(String accountId, String userId, BigDecimal amount, int currentVersion) {
         Query query = new Query(Criteria.where("id").is(accountId)
                 .and("userId").is(userId)
-                .and("balance").gte(amount));
-        Update update = new Update().inc("balance", amount.negate());
+                .and("balance").gte(amount)
+                .and("version").is(currentVersion));
+        Update update = new Update().inc("balance", amount.negate()).inc("version", 1);
         return mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), Account.class);
     }

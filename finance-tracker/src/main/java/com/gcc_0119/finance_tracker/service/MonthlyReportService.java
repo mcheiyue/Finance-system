@@ -83,11 +83,11 @@ public class MonthlyReportService {
         BigDecimal amount = transaction.getAmount();
 
         // 判断交易类型并更新总额
-        if (toAccount.getType() == AccountType.INCOME) {
-            // 收入交易：toAccount 是 INCOME 类型
+        if (fromAccount.getType() == AccountType.INCOME) {
+            // 收入交易：INCOME→ASSET，fromAccount 是 INCOME
             report.setTotalIncome(report.getTotalIncome().add(amount));
-        } else if (fromAccount.getType() == AccountType.EXPENSE) {
-            // 支出交易：fromAccount 是 EXPENSE 类型
+        } else if (toAccount.getType() == AccountType.EXPENSE) {
+            // 支出交易：ASSET→EXPENSE，toAccount 是 EXPENSE
             report.setTotalExpense(report.getTotalExpense().add(amount));
         }
 
@@ -112,9 +112,9 @@ public class MonthlyReportService {
         BigDecimal amount = originalTransaction.getAmount();
 
         // 冲正时反向更新
-        if (toAccount.getType() == AccountType.INCOME) {
+        if (fromAccount.getType() == AccountType.INCOME) {
             report.setTotalIncome(report.getTotalIncome().subtract(amount));
-        } else if (fromAccount.getType() == AccountType.EXPENSE) {
+        } else if (toAccount.getType() == AccountType.EXPENSE) {
             report.setTotalExpense(report.getTotalExpense().subtract(amount));
         }
 

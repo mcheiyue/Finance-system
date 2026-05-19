@@ -4,21 +4,20 @@ import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.Account;
 import com.gcc_0119.finance_tracker.model.AccountType;
 import com.gcc_0119.finance_tracker.model.Budget;
-import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.BudgetRepository;
-import com.gcc_0119.finance_tracker.repository.TransactionRepository;
+import org.bson.Document;
+import org.bson.types.Decimal128;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +34,6 @@ class BudgetServiceTest {
     private BudgetRepository budgetRepository;
     @Mock
     private AccountRepository accountRepository;
-    @Mock
-    private TransactionRepository transactionRepository;
     @Mock
     private MongoTemplate mongoTemplate;
 
@@ -145,6 +142,7 @@ class BudgetServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void getBudgetExecution_calculatesMonthlySpending() {
         Budget budget = new Budget();
         budget.setId("b1");
@@ -160,14 +158,11 @@ class BudgetServiceTest {
         expenseAccount.setType(AccountType.EXPENSE);
         when(accountRepository.findById("exp1")).thenReturn(Optional.of(expenseAccount));
 
-        Transaction t1 = new Transaction();
-        t1.setFromAccountId("exp1");
-        t1.setAmount(new BigDecimal("200.00"));
-        Transaction t2 = new Transaction();
-        t2.setFromAccountId("exp1");
-        t2.setAmount(new BigDecimal("150.00"));
-        when(mongoTemplate.find(any(Query.class), eq(Transaction.class)))
-                .thenReturn(List.of(t1, t2));
+        Document doc = new Document("_id", "exp1")
+                .append("total", new Decimal128(new BigDecimal("350.00")));
+        AggregationResults<Document> aggResults = mock(AggregationResults.class);
+        when(aggResults.getMappedResults()).thenReturn(List.of(doc));
+        doReturn(aggResults).when(mongoTemplate).aggregate(any(Aggregation.class), any(String.class), any());
 
         List<Map<String, Object>> results = budgetService.getBudgetExecution("user1");
 

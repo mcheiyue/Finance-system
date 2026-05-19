@@ -233,6 +233,8 @@ class TransactionServiceTest {
         Account debited = buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("800.00"));
 
         when(transactionRepository.findById("txn-orig")).thenReturn(Optional.of(original));
+        when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
+                .thenReturn(Optional.of(buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(mongoTemplate.findAndModify(
                 any(Query.class), any(UpdateDefinition.class),
                 Mockito.<FindAndModifyOptions>any(), eq(Account.class)))
@@ -319,6 +321,10 @@ class TransactionServiceTest {
         Account refunded = buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1500.00"));
 
         when(transactionRepository.findById("txn-orig")).thenReturn(Optional.of(original));
+        when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
+                .thenReturn(Optional.of(buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("100.00"))));
+        when(accountRepository.findByIdAndUserId(FROM_ACCOUNT_ID, USER_ID))
+                .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(mongoTemplate.findAndModify(
                 any(Query.class), any(UpdateDefinition.class),
                 Mockito.<FindAndModifyOptions>any(), eq(Account.class)))

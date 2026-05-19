@@ -116,7 +116,7 @@ class MonthlyReportServiceTest {
         tx.setAmount(new BigDecimal("2000.00"));
         tx.setTimestamp(LocalDateTime.of(2026, 5, 15, 10, 0));
 
-        monthlyReportService.onTransactionCreated(tx, assetAccount, incomeAccount);
+        monthlyReportService.onTransactionCreated(tx, incomeAccount, assetAccount);
 
         assertEquals(0, new BigDecimal("2000.00").compareTo(report.getTotalIncome()));
         assertEquals(0, BigDecimal.ZERO.compareTo(report.getTotalExpense()));
@@ -150,7 +150,7 @@ class MonthlyReportServiceTest {
         tx.setAmount(new BigDecimal("350.00"));
         tx.setTimestamp(LocalDateTime.of(2026, 5, 20, 14, 30));
 
-        monthlyReportService.onTransactionCreated(tx, expenseAccount, assetAccount);
+        monthlyReportService.onTransactionCreated(tx, assetAccount, expenseAccount);
 
         assertEquals(0, new BigDecimal("5000.00").compareTo(report.getTotalIncome()));
         assertEquals(0, new BigDecimal("450.00").compareTo(report.getTotalExpense()));
@@ -184,7 +184,7 @@ class MonthlyReportServiceTest {
         original.setAmount(new BigDecimal("1000.00"));
         original.setTimestamp(LocalDateTime.of(2026, 5, 10, 9, 0));
 
-        monthlyReportService.onTransactionReversed(original, assetAccount, incomeAccount);
+        monthlyReportService.onTransactionReversed(original, incomeAccount, assetAccount);
 
         assertEquals(0, new BigDecimal("2000.00").compareTo(report.getTotalIncome()));
         assertEquals(0, BigDecimal.ZERO.compareTo(report.getTotalExpense()));
@@ -218,7 +218,7 @@ class MonthlyReportServiceTest {
         original.setAmount(new BigDecimal("500.00"));
         original.setTimestamp(LocalDateTime.of(2026, 5, 12, 16, 0));
 
-        monthlyReportService.onTransactionReversed(original, expenseAccount, assetAccount);
+        monthlyReportService.onTransactionReversed(original, assetAccount, expenseAccount);
 
         assertEquals(0, BigDecimal.ZERO.compareTo(report.getTotalIncome()));
         assertEquals(0, new BigDecimal("1500.00").compareTo(report.getTotalExpense()));
