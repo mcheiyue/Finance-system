@@ -1,5 +1,6 @@
 package com.gcc_0119.finance_tracker.service;
 
+import com.gcc_0119.finance_tracker.dto.AnomalyResult;
 import com.gcc_0119.finance_tracker.dto.PaginatedResponse;
 import com.gcc_0119.finance_tracker.dto.TransactionDTO;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
@@ -30,6 +31,8 @@ public class TransactionService {
     private AccountRepository accountRepository;
     @Autowired
     private MongoTemplate mongoTemplate;
+    @Autowired
+    private AnomalyDetectionService anomalyDetectionService;
 
     public TransactionDTO createTransaction(String userId, TransactionDTO request) {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
@@ -54,6 +57,8 @@ public class TransactionService {
         accountRepository.findByIdAndUserId(toAccountId, userId)
                 .orElseThrow(() -> new BusinessException(404, "转入账户不存在或无权访问"));
 
+        AnomalyResult anomalyResult = anomalyDetectionService.detectAnomaly(userId, fromAccountId, amount);
+
         Account debited = debitAccount(fromAccountId, userId, amount);
         if (debited == null) {
             throw new BusinessException("余额不足");
@@ -74,7 +79,11 @@ public class TransactionService {
         transaction.setTimestamp(LocalDateTime.now());
 
         Transaction saved = transactionRepository.save(transaction);
-        return convertToDTO(saved);
+        TransactionDTO dto = convertToDTO(saved);
+        if (anomalyResult.isAnomalous()) {
+            dto.setAnomalyWarnings(anomalyResult.getWarnings());
+        }
+        return dto;
     }
 
     public TransactionDTO reverseTransaction(String userId, String transactionId) {

@@ -3,6 +3,7 @@ package com.gcc_0119.finance_tracker.dto;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class TransactionDTO {
@@ -15,4 +16,5 @@ public class TransactionDTO {
     private boolean reversed;
     private LocalDateTime timestamp;
     private LocalDateTime createdAt;
+    private List<String> anomalyWarnings;
 }

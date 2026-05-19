@@ -1,5 +1,6 @@
 package com.gcc_0119.finance_tracker.service;
 
+import com.gcc_0119.finance_tracker.dto.AnomalyResult;
 import com.gcc_0119.finance_tracker.dto.PaginatedResponse;
 import com.gcc_0119.finance_tracker.dto.TransactionDTO;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
@@ -40,6 +41,8 @@ class TransactionServiceTest {
     private AccountRepository accountRepository;
     @Mock
     private MongoTemplate mongoTemplate;
+    @Mock
+    private AnomalyDetectionService anomalyDetectionService;
 
     @InjectMocks
     private TransactionService transactionService;
@@ -75,6 +78,8 @@ class TransactionServiceTest {
                 .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
                 .thenReturn(Optional.of(buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
+        when(anomalyDetectionService.detectAnomaly(USER_ID, FROM_ACCOUNT_ID, amount))
+                .thenReturn(AnomalyResult.normal());
         when(mongoTemplate.findAndModify(
                 any(Query.class), any(UpdateDefinition.class),
                 Mockito.<FindAndModifyOptions>any(), eq(Account.class)))
@@ -106,6 +111,8 @@ class TransactionServiceTest {
                 .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
                 .thenReturn(Optional.of(buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
+        when(anomalyDetectionService.detectAnomaly(USER_ID, FROM_ACCOUNT_ID, amount))
+                .thenReturn(AnomalyResult.normal());
         when(mongoTemplate.findAndModify(
                 any(Query.class), any(UpdateDefinition.class),
                 Mockito.<FindAndModifyOptions>any(), eq(Account.class)))
@@ -173,6 +180,41 @@ class TransactionServiceTest {
                 () -> transactionService.createTransaction(USER_ID, request));
 
         assertTrue(ex.getMessage().contains("不能相同"));
+    }
+
+    @Test
+    void createTransaction_anomalousAmount_includesWarningsInResponse() {
+        BigDecimal amount = new BigDecimal("5000.00");
+        Account debitedAccount = buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("5000.00"));
+        Account creditedAccount = buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("15000.00"));
+
+        when(accountRepository.findByIdAndUserId(FROM_ACCOUNT_ID, USER_ID))
+                .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("10000.00"))));
+        when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
+                .thenReturn(Optional.of(buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("10000.00"))));
+
+        List<String> warnings = List.of("交易金额 5000.00 超过该账户近 90 天平均金额 100.00 的 3 倍");
+        AnomalyResult anomalyResult = AnomalyResult.anomalous(warnings, new BigDecimal("100.00"), amount);
+        when(anomalyDetectionService.detectAnomaly(USER_ID, FROM_ACCOUNT_ID, amount))
+                .thenReturn(anomalyResult);
+
+        when(mongoTemplate.findAndModify(
+                any(Query.class), any(UpdateDefinition.class),
+                Mockito.<FindAndModifyOptions>any(), eq(Account.class)))
+                .thenReturn(debitedAccount)
+                .thenReturn(creditedAccount);
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> {
+            Transaction t = inv.getArgument(0);
+            t.setId("txn-anomaly");
+            t.setCreatedAt(LocalDateTime.now());
+            return t;
+        });
+
+        TransactionDTO result = transactionService.createTransaction(USER_ID, buildRequest(amount));
+
+        assertNotNull(result.getAnomalyWarnings());
+        assertEquals(1, result.getAnomalyWarnings().size());
+        assertTrue(result.getAnomalyWarnings().get(0).contains("超过该账户近 90 天平均金额"));
     }
 
     @Test
