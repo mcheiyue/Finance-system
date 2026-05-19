@@ -2,7 +2,6 @@ package com.gcc_0119.finance_tracker.model;
 
 import lombok.Data;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
@@ -12,7 +11,6 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 @Document(collection = "monthly_reports")
-@CompoundIndex(def = "{'userId': 1, 'month': 1}", unique = true)
 @Data
 public class MonthlyReport {
     @Id

@@ -30,6 +30,7 @@ class MonthlyReportRepositoryTest {
     @BeforeEach
     void setUp() {
         IndexOperations indexOps = mongoTemplate.indexOps(MonthlyReport.class);
+        indexOps.dropAllIndexes();
         indexOps.ensureIndex(
             new org.springframework.data.mongodb.core.index.CompoundIndexDefinition(
                 new org.bson.Document("userId", 1).append("month", 1)
