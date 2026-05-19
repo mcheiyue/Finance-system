@@ -207,6 +207,11 @@ public class TransactionService {
         Account result = mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), Account.class);
         if (result == null) {
+            Account currentAcc = mongoTemplate.findById(account.getId(), Account.class);
+            if (currentAcc != null && currentAcc.getType() == AccountType.ASSET
+                    && currentAcc.getBalance().compareTo(amount) < 0) {
+                throw new BusinessException("余额不足");
+            }
             throw new BusinessException(509, "系统繁忙，请重试");
         }
         return result;

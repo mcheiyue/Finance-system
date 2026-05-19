@@ -167,11 +167,16 @@ function ReportsPage() {
       dataIndex: 'balance',
       key: 'balance',
       align: 'right',
-      render: (value) => (
-        <span className="font-mono" style={{ fontWeight: 600 }}>
-          ¥{formatAmount(value)}
-        </span>
-      ),
+      render: (value, record) => {
+        const displayValue = (record.type === 'INCOME' || record.type === 'EQUITY')
+          ? Math.abs(Number(value || 0))
+          : Number(value || 0);
+        return (
+          <span className="font-mono" style={{ fontWeight: 600 }}>
+            ¥{formatAmount(displayValue)}
+          </span>
+        );
+      },
     },
   ];
 
@@ -188,6 +193,7 @@ function ReportsPage() {
         key: index,
         account: account ? account.name : accountId.substring(0, 8) + '…',
         balance,
+        type: account ? account.type : null,
       };
     });
   };
@@ -343,6 +349,11 @@ function ReportsPage() {
       >
         {detailRecord && (
           <div>
+            {detailRecord.month !== new Date().toISOString().slice(0, 7) && (
+              <div style={{ marginBottom: 12, padding: '8px 12px', background: token.colorWarningBg || '#fffbe6', borderRadius: 6, fontSize: 13, color: token.colorWarningText || '#d48806' }}>
+                注：追溯生成的历史月份余额明细可能受当前账户状态影响
+              </div>
+            )}
             <Descriptions column={1} bordered size="small" style={{ marginBottom: 16 }}>
               <Descriptions.Item label="月份">
                 <Space>
