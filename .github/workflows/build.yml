@@ -49,9 +49,7 @@ jobs:
 
       - name: Build backend with Maven
         working-directory: finance-tracker
-        run: |
-          chmod +x ./mvnw
-          ./mvnw clean package -DskipTests -B
+        run: mvn clean package -DskipTests -B
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
