@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @Document(collection = "monthly_reports")
@@ -40,6 +41,30 @@ public class MonthlyReport {
      */
     @Field(targetType = FieldType.DECIMAL128)
     private BigDecimal totalExpense = BigDecimal.ZERO;
+    
+    /**
+     * 结余 = totalIncome - totalExpense
+     */
+    @Field(targetType = FieldType.DECIMAL128)
+    private BigDecimal balance = BigDecimal.ZERO;
+    
+    /**
+     * 储蓄率 = balance / totalIncome（收入为0时为0）
+     */
+    @Field(targetType = FieldType.DECIMAL128)
+    private BigDecimal savingRate = BigDecimal.ZERO;
+    
+    /**
+     * 按分类统计支出
+     * key: 分类账户名称, value: 该分类本月支出总额
+     */
+    private Map<String, BigDecimal> categoryExpense = new HashMap<>();
+    
+    /**
+     * 按分类统计收入
+     * key: 分类账户名称, value: 该分类本月收入总额
+     */
+    private Map<String, BigDecimal> categoryIncome = new HashMap<>();
     
     /**
      * 本月交易笔数

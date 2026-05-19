@@ -68,6 +68,12 @@ class MonthlyReportServiceTest {
         assertEquals(currentMonth, result.getMonth());
         assertEquals(0, BigDecimal.ZERO.compareTo(result.getTotalIncome()));
         assertEquals(0, BigDecimal.ZERO.compareTo(result.getTotalExpense()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.getBalance()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.getSavingRate()));
+        assertNotNull(result.getCategoryExpense());
+        assertTrue(result.getCategoryExpense().isEmpty());
+        assertNotNull(result.getCategoryIncome());
+        assertTrue(result.getCategoryIncome().isEmpty());
         assertEquals(0, result.getTransactionCount());
         assertEquals(2, result.getAccountBalances().size());
         assertEquals(0, new BigDecimal("1000.00").compareTo(result.getAccountBalances().get("acc1")));
@@ -108,6 +114,7 @@ class MonthlyReportServiceTest {
         Account incomeAccount = new Account();
         incomeAccount.setId("inc1");
         incomeAccount.setType(AccountType.INCOME);
+        incomeAccount.setName("工资");
         Account assetAccount = new Account();
         assetAccount.setId("asset1");
         assetAccount.setType(AccountType.ASSET);
@@ -119,7 +126,7 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionCreated(tx, incomeAccount, assetAccount);
 
-        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
+        verify(mongoTemplate, times(2)).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test
@@ -135,6 +142,7 @@ class MonthlyReportServiceTest {
         Account expenseAccount = new Account();
         expenseAccount.setId("exp1");
         expenseAccount.setType(AccountType.EXPENSE);
+        expenseAccount.setName("餐饮");
         Account assetAccount = new Account();
         assetAccount.setId("asset1");
         assetAccount.setType(AccountType.ASSET);
@@ -146,7 +154,7 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionCreated(tx, assetAccount, expenseAccount);
 
-        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
+        verify(mongoTemplate, times(2)).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test
@@ -162,6 +170,7 @@ class MonthlyReportServiceTest {
         Account incomeAccount = new Account();
         incomeAccount.setId("inc1");
         incomeAccount.setType(AccountType.INCOME);
+        incomeAccount.setName("工资");
         Account assetAccount = new Account();
         assetAccount.setId("asset1");
         assetAccount.setType(AccountType.ASSET);
@@ -173,7 +182,7 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionReversed(original, incomeAccount, assetAccount);
 
-        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
+        verify(mongoTemplate, times(2)).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test
@@ -189,6 +198,7 @@ class MonthlyReportServiceTest {
         Account expenseAccount = new Account();
         expenseAccount.setId("exp1");
         expenseAccount.setType(AccountType.EXPENSE);
+        expenseAccount.setName("餐饮");
         Account assetAccount = new Account();
         assetAccount.setId("asset1");
         assetAccount.setType(AccountType.ASSET);
@@ -200,7 +210,7 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionReversed(original, assetAccount, expenseAccount);
 
-        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
+        verify(mongoTemplate, times(2)).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test

@@ -82,6 +82,10 @@ public class MonthlyReportService {
         report.setAccountBalances(balances);
         report.setTotalIncome(BigDecimal.ZERO);
         report.setTotalExpense(BigDecimal.ZERO);
+        report.setBalance(BigDecimal.ZERO);
+        report.setSavingRate(BigDecimal.ZERO);
+        report.setCategoryExpense(new HashMap<>());
+        report.setCategoryIncome(new HashMap<>());
         report.setTransactionCount(0);
         report.setCreatedAt(LocalDateTime.now());
         report.setUpdatedAt(LocalDateTime.now());
@@ -107,13 +111,19 @@ public class MonthlyReportService {
 
         if (fromAccount.getType() == AccountType.INCOME) {
             update.inc("totalIncome", amount);
+            update.inc("balance", amount);
+            update.inc("categoryIncome." + fromAccount.getName(), amount);
         } else if (toAccount.getType() == AccountType.EXPENSE) {
             update.inc("totalExpense", amount);
+            update.inc("balance", amount.negate());
+            update.inc("categoryExpense." + toAccount.getName(), amount);
         }
 
         mongoTemplate.updateFirst(
                 Query.query(Criteria.where("userId").is(transaction.getUserId()).and("month").is(month)),
                 update, MonthlyReport.class);
+
+        updateSavingRate(transaction.getUserId(), month);
     }
 
     /**
@@ -134,13 +144,19 @@ public class MonthlyReportService {
 
         if (fromAccount.getType() == AccountType.INCOME) {
             update.inc("totalIncome", amount.negate());
+            update.inc("balance", amount.negate());
+            update.inc("categoryIncome." + fromAccount.getName(), amount.negate());
         } else if (toAccount.getType() == AccountType.EXPENSE) {
             update.inc("totalExpense", amount.negate());
+            update.inc("balance", amount);
+            update.inc("categoryExpense." + toAccount.getName(), amount.negate());
         }
 
         mongoTemplate.updateFirst(
                 Query.query(Criteria.where("userId").is(originalTransaction.getUserId()).and("month").is(month)),
                 update, MonthlyReport.class);
+
+        updateSavingRate(originalTransaction.getUserId(), month);
     }
 
     /**
@@ -156,6 +172,23 @@ public class MonthlyReportService {
     public MonthlyReport getReport(String userId, String month) {
         return monthlyReportRepository.findByUserIdAndMonth(userId, month)
                 .orElseThrow(() -> new BusinessException(404, "月报不存在"));
+    }
+
+    private void updateSavingRate(String userId, String month) {
+        MonthlyReport report = monthlyReportRepository.findByUserIdAndMonth(userId, month).orElse(null);
+        if (report == null) return;
+
+        BigDecimal savingRate = BigDecimal.ZERO;
+        if (report.getTotalIncome().compareTo(BigDecimal.ZERO) > 0) {
+            savingRate = report.getBalance()
+                    .divide(report.getTotalIncome(), 4, java.math.RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
+        }
+
+        mongoTemplate.updateFirst(
+                Query.query(Criteria.where("userId").is(userId).and("month").is(month)),
+                Update.update("savingRate", savingRate),
+                MonthlyReport.class);
     }
 
     @Async("taskExecutor")
