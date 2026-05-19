@@ -3,7 +3,8 @@ import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { Layout, Menu, Segmented, theme, Button, Dropdown, Space } from 'antd';
 import {
   FileTextOutlined, PieChartOutlined, DollarOutlined, SunOutlined, MoonOutlined,
-  DesktopOutlined, UserOutlined, LogoutOutlined, SafetyCertificateOutlined
+  DesktopOutlined, UserOutlined, LogoutOutlined, SafetyCertificateOutlined,
+  AccountBookOutlined, BarChartOutlined, ImportOutlined
 } from '@ant-design/icons';
 import HomePage from './pages/HomePage';
 import StatisticsPage from './pages/StatisticsPage';
@@ -11,6 +12,9 @@ import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
+import BudgetsPage from './pages/BudgetsPage';
+import ReportsPage from './pages/ReportsPage';
+import ImportPage from './pages/ImportPage';
 import { useTheme } from './ThemeContext';
 import { useAuth } from './AuthContext';
 
@@ -48,6 +52,9 @@ export default function App() {
   const menuItems = [
     { key: '1', icon: <FileTextOutlined />, label: <Link to="/">账单明细</Link> },
     { key: '2', icon: <PieChartOutlined />, label: <Link to="/stats">统计报表</Link> },
+    { key: '4', icon: <AccountBookOutlined />, label: <Link to="/budgets">预算管理</Link> },
+    { key: '5', icon: <BarChartOutlined />, label: <Link to="/reports">月度报告</Link> },
+    { key: '6', icon: <ImportOutlined />, label: <Link to="/import">CSV 导入</Link> },
   ];
 
   if (isAdmin) {
@@ -61,6 +68,9 @@ export default function App() {
     if (path === '/') return ['1'];
     if (path === '/stats') return ['2'];
     if (path === '/admin') return ['3'];
+    if (path === '/budgets') return ['4'];
+    if (path === '/reports') return ['5'];
+    if (path === '/import') return ['6'];
     return [];
   };
 
@@ -160,6 +170,9 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/stats" element={<StatisticsPage />} />
+                <Route path="/budgets" element={<BudgetsPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/import" element={<ImportPage />} />
                 {isAdmin && <Route path="/admin" element={<AdminPage />} />}
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="*" element={<Navigate to="/" />} />
