@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  Tabs, Spin, Card, Empty, Row, Col, theme, Space, Radio
+  Tabs, Spin, Card, Empty, Row, Col, theme, Space, Radio, Select
 } from 'antd';
 import { Pie, Area } from '@ant-design/plots';
 import {
@@ -8,7 +8,8 @@ import {
   ArrowUpOutlined, ArrowDownOutlined, WalletOutlined
 } from '@ant-design/icons';
 import { useTheme } from '../ThemeContext';
-import { getStatsByType, getStatsByCategory, getRecentTransactions } from '../api/transaction';
+import { getRecentTransactions } from '../api/transaction';
+import { getAccounts } from '../api/account';
 
 function StatisticsPage() {
   const { token } = theme.useToken();
@@ -19,31 +20,67 @@ function StatisticsPage() {
   const [trendData, setTrendData] = useState([]);
   const [summary, setSummary] = useState({ totalIncome: 0, totalExpense: 0 });
   const [dateRange, setDateRange] = useState(30);
+  const [categoryFilter, setCategoryFilter] = useState('expense');
+  const enrichedRef = useRef([]);
 
-  const loadCategoryStats = useCallback(async (type) => {
-    try {
-      const res = await getStatsByCategory(type, dateRange);
-      setCategoryData(Object.entries(res).map(([c, t]) => ({ category: c, total: Number(t) })).sort((a, b) => b.total - a.total));
-    } catch (e) { console.error(e); }
-  }, [dateRange]);
+  const loadCategoryStats = useCallback((type) => {
+    const txList = enrichedRef.current;
+    const catMap = {};
+    txList.forEach(tx => {
+      if (tx.type !== type) return;
+      const cat = tx.category || '其他';
+      catMap[cat] = (catMap[cat] || 0) + Number(tx.amount);
+    });
+    const catData = Object.entries(catMap)
+      .map(([c, t]) => ({ category: c, total: Number(t) }))
+      .sort((a, b) => b.total - a.total);
+    setCategoryData(catData);
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [typeRes, trendRes] = await Promise.all([
-        getStatsByType(dateRange),
-        getRecentTransactions(dateRange)
+      const [txList, expenseAccounts, incomeAccounts] = await Promise.all([
+        getRecentTransactions(dateRange),
+        getAccounts('EXPENSE'),
+        getAccounts('INCOME'),
       ]);
 
-      const tData = Object.entries(typeRes).map(([type, total]) => ({
-        type: type === 'income' ? '收入' : '支出',
-        total: Number(total),
-      }));
-      setTypeData(tData);
-      setSummary({ totalIncome: Number(typeRes.income || 0), totalExpense: Number(typeRes.expense || 0) });
+      const transactions = txList || [];
+      const expenseMap = {};
+      (expenseAccounts || []).forEach(a => { expenseMap[a.id] = a.name; });
+      const incomeMap = {};
+      (incomeAccounts || []).forEach(a => { incomeMap[a.id] = a.name; });
+
+      const enriched = transactions.map(tx => {
+        let type = 'unknown';
+        let category = '其他';
+        if (incomeMap[tx.fromAccountId]) {
+          type = 'income';
+          category = incomeMap[tx.fromAccountId];
+        } else if (expenseMap[tx.toAccountId]) {
+          type = 'expense';
+          category = expenseMap[tx.toAccountId];
+        }
+        return { ...tx, type, category };
+      }).filter(tx => tx.type !== 'unknown');
+      enrichedRef.current = enriched;
+
+      const incomeTotal = enriched
+        .filter(tx => tx.type === 'income')
+        .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const expenseTotal = enriched
+        .filter(tx => tx.type === 'expense')
+        .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+      setTypeData([
+        { type: '收入', total: incomeTotal },
+        { type: '支出', total: expenseTotal },
+      ]);
+      setSummary({ totalIncome: incomeTotal, totalExpense: expenseTotal });
 
       const dateMap = {};
-      trendRes.forEach(tx => {
+      enriched.forEach(tx => {
         const date = tx.timestamp.split('T')[0];
         if (!dateMap[date]) dateMap[date] = { income: 0, expense: 0 };
         if (tx.type === 'income') dateMap[date].income += Number(tx.amount);
@@ -54,15 +91,16 @@ function StatisticsPage() {
       })).sort((a, b) => a.date.localeCompare(b.date));
       setTrendData(trData);
 
-      await loadCategoryStats('expense');
+      loadCategoryStats(categoryFilter);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [dateRange, loadCategoryStats]);
+  }, [dateRange, categoryFilter, loadCategoryStats]);
 
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { if (enrichedRef.current.length > 0) loadCategoryStats(categoryFilter); }, [categoryFilter, loadCategoryStats]);
 
   const monoColors = ['#111827', '#374151', '#4B5563', '#6B7280', '#9CA3AF', '#D1D5DB'];
   const darkMonoColors = ['#F9FAFB', '#E5E7EB', '#D1D5DB', '#9CA3AF', '#6B7280', '#4B5563'];
@@ -165,7 +203,7 @@ const typeConfig = useMemo(() => ({
           <Col xs={24} lg={12}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, gap: 10 }}>
               <span style={{ fontWeight: 'bold', color: token.colorTextSecondary }}>分类占比</span>
-              <Select defaultValue="expense" size="small" onChange={val => loadCategoryStats(val)} options={[{ value: 'expense', label: '支出' }, { value: 'income', label: '收入' }]} />
+              <Select value={categoryFilter} size="small" onChange={val => setCategoryFilter(val)} options={[{ value: 'expense', label: '支出' }, { value: 'income', label: '收入' }]} />
             </div>
             <div style={{ height: 350, width: '100%' }}>
               {totalCategoryAmount > 0 ? (<Pie {...categoryConfig} />) : (<Empty description="暂无分类数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />)}
