@@ -234,7 +234,16 @@ class TransactionServiceTest {
         Account refunded = buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1200.00"));
         Account debited = buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("800.00"));
 
-        when(transactionRepository.findById("txn-orig")).thenReturn(Optional.of(original));
+        Transaction markedOriginal = new Transaction();
+        markedOriginal.setId("txn-orig");
+        markedOriginal.setReversed(true);
+        markedOriginal.setFromAccountId(FROM_ACCOUNT_ID);
+        markedOriginal.setToAccountId(TO_ACCOUNT_ID);
+        markedOriginal.setAmount(new BigDecimal("200.00"));
+        when(mongoTemplate.findAndModify(
+                any(Query.class), any(UpdateDefinition.class),
+                Mockito.<FindAndModifyOptions>any(), eq(Transaction.class)))
+                .thenReturn(markedOriginal);
         when(accountRepository.findByIdAndUserId(FROM_ACCOUNT_ID, USER_ID))
                 .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
@@ -261,11 +270,7 @@ class TransactionServiceTest {
         assertEquals(0, new BigDecimal("200.00").compareTo(result.getAmount()));
         assertEquals("txn-orig", result.getReversalOfId());
 
-        ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
-        verify(transactionRepository, times(2)).save(captor.capture());
-        Transaction markedOriginal = captor.getAllValues().get(0);
-        assertTrue(markedOriginal.isReversed());
-        assertEquals("txn-orig", markedOriginal.getId());
+        verify(transactionRepository).save(any(Transaction.class));
     }
 
     @Test
@@ -276,17 +281,24 @@ class TransactionServiceTest {
         original.setReversed(true);
         original.setAmount(new BigDecimal("100.00"));
 
+        when(mongoTemplate.findAndModify(
+                any(Query.class), any(UpdateDefinition.class),
+                Mockito.<FindAndModifyOptions>any(), eq(Transaction.class)))
+                .thenReturn(null);
         when(transactionRepository.findById("txn-orig")).thenReturn(Optional.of(original));
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> transactionService.reverseTransaction(USER_ID, "txn-orig"));
 
         assertTrue(ex.getMessage().contains("已被冲正"));
-        verifyNoInteractions(mongoTemplate);
     }
 
     @Test
     void reverseTransaction_notFound_throws404() {
+        when(mongoTemplate.findAndModify(
+                any(Query.class), any(UpdateDefinition.class),
+                Mockito.<FindAndModifyOptions>any(), eq(Transaction.class)))
+                .thenReturn(null);
         when(transactionRepository.findById("nonexistent")).thenReturn(Optional.empty());
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -303,6 +315,10 @@ class TransactionServiceTest {
         original.setUserId("other-user");
         original.setReversed(false);
 
+        when(mongoTemplate.findAndModify(
+                any(Query.class), any(UpdateDefinition.class),
+                Mockito.<FindAndModifyOptions>any(), eq(Transaction.class)))
+                .thenReturn(null);
         when(transactionRepository.findById("txn-orig")).thenReturn(Optional.of(original));
 
         BusinessException ex = assertThrows(BusinessException.class,
@@ -324,7 +340,16 @@ class TransactionServiceTest {
 
         Account refunded = buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1500.00"));
 
-        when(transactionRepository.findById("txn-orig")).thenReturn(Optional.of(original));
+        Transaction markedOriginal = new Transaction();
+        markedOriginal.setId("txn-orig");
+        markedOriginal.setReversed(true);
+        markedOriginal.setFromAccountId(FROM_ACCOUNT_ID);
+        markedOriginal.setToAccountId(TO_ACCOUNT_ID);
+        markedOriginal.setAmount(new BigDecimal("500.00"));
+        when(mongoTemplate.findAndModify(
+                any(Query.class), any(UpdateDefinition.class),
+                Mockito.<FindAndModifyOptions>any(), eq(Transaction.class)))
+                .thenReturn(markedOriginal);
         when(accountRepository.findByIdAndUserId(FROM_ACCOUNT_ID, USER_ID))
                 .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
@@ -365,7 +390,7 @@ class TransactionServiceTest {
                 .thenReturn(Arrays.asList(txn2, txn1));
 
         PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
-                USER_ID, 0, 20, null, null);
+                USER_ID, 0, 20, null, null, null, null, null);
 
         assertEquals(2, result.getContent().size());
         assertEquals(0, result.getPage());
@@ -391,7 +416,7 @@ class TransactionServiceTest {
                 .thenReturn(Collections.singletonList(txn));
 
         PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
-                USER_ID, 0, 20, FROM_ACCOUNT_ID, null);
+                USER_ID, 0, 20, FROM_ACCOUNT_ID, null, null, null, null);
 
         assertEquals(1, result.getContent().size());
         assertEquals(FROM_ACCOUNT_ID, result.getContent().get(0).getFromAccountId());
@@ -412,7 +437,7 @@ class TransactionServiceTest {
                 .thenReturn(Collections.singletonList(txn));
 
         PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
-                USER_ID, 0, 20, null, TO_ACCOUNT_ID);
+                USER_ID, 0, 20, null, TO_ACCOUNT_ID, null, null, null);
 
         assertEquals(1, result.getContent().size());
         assertEquals(TO_ACCOUNT_ID, result.getContent().get(0).getToAccountId());
@@ -425,7 +450,7 @@ class TransactionServiceTest {
                 .thenReturn(Collections.emptyList());
 
         PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
-                USER_ID, 0, 20, null, null);
+                USER_ID, 0, 20, null, null, null, null, null);
 
         assertTrue(result.getContent().isEmpty());
         assertEquals(0L, result.getTotalElements());
@@ -447,7 +472,7 @@ class TransactionServiceTest {
                 .thenReturn(Collections.singletonList(txn));
 
         PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
-                USER_ID, 1, 2, null, null);
+                USER_ID, 1, 2, null, null, null, null, null);
 
         assertEquals(1, result.getContent().size());
         assertEquals(1, result.getPage());

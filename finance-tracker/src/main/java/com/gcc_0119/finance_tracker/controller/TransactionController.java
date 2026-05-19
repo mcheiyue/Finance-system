@@ -38,10 +38,13 @@ public class TransactionController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String fromAccountId,
-            @RequestParam(required = false) String toAccountId) {
+            @RequestParam(required = false) String toAccountId,
+            @RequestParam(required = false) LocalDateTime startDate,
+            @RequestParam(required = false) LocalDateTime endDate,
+            @RequestParam(required = false) String keyword) {
         String userId = securityUtils.getCurrentUserId();
         PaginatedResponse<TransactionDTO> result = transactionService.getTransactionsPaginated(
-                userId, page, size, fromAccountId, toAccountId);
+                userId, page, size, fromAccountId, toAccountId, startDate, endDate, keyword);
         return ApiResponse.success(result);
     }
 

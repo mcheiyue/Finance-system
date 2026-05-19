@@ -93,13 +93,20 @@ public class TransactionService {
 
     @Transactional
     public TransactionDTO reverseTransaction(String userId, String transactionId) {
-        Transaction original = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new BusinessException(404, "交易记录不存在"));
-
-        if (!original.getUserId().equals(userId)) {
-            throw new BusinessException(404, "交易记录不存在或无权访问");
-        }
-        if (original.isReversed()) {
+        Query markReversedQuery = new Query(Criteria.where("id").is(transactionId)
+                .and("userId").is(userId)
+                .and("reversed").is(false));
+        Update markReversedUpdate = new Update().set("reversed", true);
+        Transaction original = mongoTemplate.findAndModify(markReversedQuery, markReversedUpdate,
+                FindAndModifyOptions.options().returnNew(true), Transaction.class);
+        if (original == null) {
+            Transaction existing = transactionRepository.findById(transactionId).orElse(null);
+            if (existing == null) {
+                throw new BusinessException(404, "交易记录不存在");
+            }
+            if (!existing.getUserId().equals(userId)) {
+                throw new BusinessException(404, "交易记录不存在或无权访问");
+            }
             throw new BusinessException("该交易已被冲正，不能重复冲正");
         }
 
@@ -107,10 +114,7 @@ public class TransactionService {
 
         Account fromAcc = accountRepository.findByIdAndUserId(original.getFromAccountId(), userId)
                 .orElseThrow(() -> new BusinessException(500, "冲正失败：原转出账户不存在"));
-        Account refunded = creditAccount(original.getFromAccountId(), userId, amount);
-        if (refunded == null) {
-            throw new BusinessException(500, "冲正失败：退款操作异常");
-        }
+        creditAccount(original.getFromAccountId(), userId, amount);
 
         Account toAcc = accountRepository.findByIdAndUserId(original.getToAccountId(), userId)
                 .orElseThrow(() -> new BusinessException(500, "冲正失败：转入账户不存在"));
@@ -118,9 +122,6 @@ public class TransactionService {
         if (debited == null) {
             throw new BusinessException("冲正失败：转入账户余额不足");
         }
-
-        original.setReversed(true);
-        transactionRepository.save(original);
 
         Transaction reversal = new Transaction();
         reversal.setUserId(userId);
@@ -165,7 +166,9 @@ public class TransactionService {
      * 分页查询交易
      */
     public PaginatedResponse<TransactionDTO> getTransactionsPaginated(String userId, int page, int size,
-                                                                       String fromAccountId, String toAccountId) {
+                                                                       String fromAccountId, String toAccountId,
+                                                                       LocalDateTime startDate, LocalDateTime endDate,
+                                                                       String keyword) {
         Query query = new Query();
         query.addCriteria(Criteria.where("userId").is(userId));
 
@@ -174,6 +177,15 @@ public class TransactionService {
         }
         if (toAccountId != null) {
             query.addCriteria(Criteria.where("toAccountId").is(toAccountId));
+        }
+        if (startDate != null) {
+            query.addCriteria(Criteria.where("timestamp").gte(startDate));
+        }
+        if (endDate != null) {
+            query.addCriteria(Criteria.where("timestamp").lte(endDate));
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            query.addCriteria(Criteria.where("description").regex(keyword, "i"));
         }
 
         long total = mongoTemplate.count(query, Transaction.class);
