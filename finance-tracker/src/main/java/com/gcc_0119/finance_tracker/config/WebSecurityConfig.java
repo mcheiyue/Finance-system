@@ -52,6 +52,7 @@ public class WebSecurityConfig {
                         .requestMatchers(
                                 "/",
                                 "/index.html",
+                                "/app.svg",
                                 "/favicon.ico",
                                 "/assets/**",
                                 "/login",

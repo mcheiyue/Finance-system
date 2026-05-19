@@ -72,7 +72,7 @@ function HomePage() {
     setLoading(true);
     try {
       const data = await getTransactions();
-      setAllData(data);
+      setAllData(data?.content ?? []);
     } catch (error) {
       console.error(error);
     } finally {
