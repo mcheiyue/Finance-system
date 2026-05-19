@@ -1,6 +1,7 @@
 package com.gcc_0119.finance_tracker.service;
 
 import com.gcc_0119.finance_tracker.common.SecurityUtils;
+import com.gcc_0119.finance_tracker.dto.UserDTO;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.User;
 import com.gcc_0119.finance_tracker.repository.UserRepository;
@@ -11,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -60,5 +63,32 @@ class UserServiceTest {
 
         verify(userRepository, never()).save(any(User.class));
         verify(accountService, never()).initializePresetAccounts(any());
+    }
+
+    @Test
+    void getCurrentUserProfile_returnsUserDTO() {
+        User user = new User();
+        user.setId("user123");
+        user.setUsername("alice");
+        user.setEmail("alice@example.com");
+        user.setRoles(java.util.Set.of("ROLE_USER"));
+
+        when(securityUtils.getCurrentUserId()).thenReturn("user123");
+        when(userRepository.findById("user123")).thenReturn(java.util.Optional.of(user));
+
+        UserDTO result = userService.getCurrentUserProfile();
+
+        assertNotNull(result);
+        assertEquals("user123", result.getId());
+        assertEquals("alice", result.getUsername());
+        assertEquals("alice@example.com", result.getEmail());
+    }
+
+    @Test
+    void getCurrentUserProfile_userNotFound_throwsException() {
+        when(securityUtils.getCurrentUserId()).thenReturn("user123");
+        when(userRepository.findById("user123")).thenReturn(java.util.Optional.empty());
+
+        assertThrows(BusinessException.class, () -> userService.getCurrentUserProfile());
     }
 }
