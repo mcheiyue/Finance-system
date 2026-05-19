@@ -1,18 +1,36 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from './utils/request';
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import { getUserProfile } from './api/user';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    if (localStorage.getItem('token')) {
-      return { name: 'User' };
-    }
-    return null;
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(() => !!localStorage.getItem('token'));
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    getUserProfile()
+      .then((data) => {
+        setUser({
+          username: data.username,
+          email: data.email,
+          roles: data.roles,
+        });
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   const login = async (username, password) => {
     try {
@@ -49,16 +67,18 @@ export const AuthProvider = ({ children }) => {
     message.success('已退出登录');
   };
 
-  // 核心修复：添加 isAuthenticated 属性
-  // 通过判断 user 是否存在来决定是否已认证
   const value = {
     user,
     login,
     register,
     logout,
-    loading: false,
-    isAuthenticated: !!user, // <--- 加上这一句！!!user 把对象转为布尔值
+    loading,
+    isAuthenticated: !!user,
   };
+
+  if (loading) {
+    return null;
+  }
 
   return (
     <AuthContext.Provider value={value}>

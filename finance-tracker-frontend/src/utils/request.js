@@ -60,7 +60,6 @@ service.interceptors.response.use(
 
 function handleLoginExpired() {
     localStorage.removeItem('token');
-    window.location.href = '/login';
 }
 
 export default service;
