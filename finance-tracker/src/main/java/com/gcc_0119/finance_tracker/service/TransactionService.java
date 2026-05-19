@@ -7,6 +7,7 @@ import com.gcc_0119.finance_tracker.event.TransactionCreatedEvent;
 import com.gcc_0119.finance_tracker.event.TransactionReversedEvent;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.Account;
+import com.gcc_0119.finance_tracker.model.AccountType;
 import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.TransactionRepository;
@@ -66,7 +67,7 @@ public class TransactionService {
 
         AnomalyResult anomalyResult = anomalyDetectionService.detectAnomaly(userId, fromAccountId, amount);
 
-        Account debited = debitAccount(fromAccountId, userId, amount, fromAcc.getVersion());
+        Account debited = debitAccount(fromAcc, userId, amount);
         if (debited == null) {
             throw new BusinessException("余额不足");
         }
@@ -118,7 +119,7 @@ public class TransactionService {
 
         Account toAcc = accountRepository.findByIdAndUserId(original.getToAccountId(), userId)
                 .orElseThrow(() -> new BusinessException(500, "冲正失败：转入账户不存在"));
-        Account debited = debitAccount(original.getToAccountId(), userId, amount, toAcc.getVersion());
+        Account debited = debitAccount(toAcc, userId, amount);
         if (debited == null) {
             throw new BusinessException("冲正失败：转入账户余额不足");
         }
@@ -201,20 +202,18 @@ public class TransactionService {
         return PaginatedResponse.of(dtos, page, size, total);
     }
 
-    private Account debitAccount(String accountId, String userId, BigDecimal amount, int currentVersion) {
-        Query query = new Query(Criteria.where("id").is(accountId)
+    private Account debitAccount(Account account, String userId, BigDecimal amount) {
+        Query query = new Query(Criteria.where("id").is(account.getId())
                 .and("userId").is(userId)
-                .and("balance").gte(amount)
-                .and("version").is(currentVersion));
+                .and("version").is(account.getVersion()));
+        if (account.getType() == AccountType.ASSET) {
+            query.addCriteria(Criteria.where("balance").gte(amount));
+        }
         Update update = new Update().inc("balance", amount.negate()).inc("version", 1);
         Account result = mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), Account.class);
         if (result == null) {
-            Account account = accountRepository.findByIdAndUserId(accountId, userId).orElse(null);
-            if (account == null) {
-                return null;
-            }
-            if (account.getBalance().compareTo(amount) < 0) {
+            if (account.getType() == AccountType.ASSET && account.getBalance().compareTo(amount) < 0) {
                 throw new BusinessException("余额不足");
             }
             throw new BusinessException(509, "系统繁忙，请重试");

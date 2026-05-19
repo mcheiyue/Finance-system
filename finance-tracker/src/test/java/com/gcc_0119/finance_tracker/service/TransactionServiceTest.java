@@ -5,6 +5,7 @@ import com.gcc_0119.finance_tracker.dto.PaginatedResponse;
 import com.gcc_0119.finance_tracker.dto.TransactionDTO;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.Account;
+import com.gcc_0119.finance_tracker.model.AccountType;
 import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.TransactionRepository;
@@ -67,6 +68,16 @@ class TransactionServiceTest {
         account.setId(id);
         account.setUserId(userId);
         account.setBalance(balance);
+        account.setType(AccountType.ASSET);
+        return account;
+    }
+
+    private Account buildAccount(String id, String userId, BigDecimal balance, AccountType type) {
+        Account account = new Account();
+        account.setId(id);
+        account.setUserId(userId);
+        account.setBalance(balance);
+        account.setType(type);
         return account;
     }
 
