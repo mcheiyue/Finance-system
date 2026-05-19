@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Tabs, Spin, Alert, Card, Button, Modal, Form, Select, InputNumber,
-  message, Empty, Row, Col, theme, Space, Radio
+  Tabs, Spin, Card, Empty, Row, Col, theme, Space, Radio
 } from 'antd';
 import { Pie, Area } from '@ant-design/plots';
 import {
-  SettingOutlined, PieChartOutlined, LineChartOutlined,
+  PieChartOutlined, LineChartOutlined,
   ArrowUpOutlined, ArrowDownOutlined, WalletOutlined
 } from '@ant-design/icons';
-import { EXPENSE_CATEGORIES } from '../constants';
 import { useTheme } from '../ThemeContext';
 import { getStatsByType, getStatsByCategory, getRecentTransactions } from '../api/transaction';
 
@@ -20,8 +18,6 @@ function StatisticsPage() {
   const [categoryData, setCategoryData] = useState([]);
   const [trendData, setTrendData] = useState([]);
   const [summary, setSummary] = useState({ totalIncome: 0, totalExpense: 0 });
-  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
-  const [budgetForm] = Form.useForm();
   const [dateRange, setDateRange] = useState(30);
 
   const loadCategoryStats = useCallback(async (type) => {
@@ -67,14 +63,6 @@ function StatisticsPage() {
   }, [dateRange, loadCategoryStats]);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  const handleBudgetFinish = (values) => {
-    const budgets = JSON.parse(localStorage.getItem('finance_budgets') || '{}');
-    budgets[values.category] = values.limit;
-    localStorage.setItem('finance_budgets', JSON.stringify(budgets));
-    message.success('预算设置成功');
-    setBudgetModalVisible(false);
-  };
 
   const monoColors = ['#111827', '#374151', '#4B5563', '#6B7280', '#9CA3AF', '#D1D5DB'];
   const darkMonoColors = ['#F9FAFB', '#E5E7EB', '#D1D5DB', '#9CA3AF', '#6B7280', '#4B5563'];
@@ -211,17 +199,9 @@ const typeConfig = useMemo(() => ({
         <Col xs={24} sm={12}><StatCard title="总收入" value={summary.totalIncome} color={token.colorSuccess} icon={<ArrowUpOutlined />} /></Col>
         <Col xs={24} sm={12}><StatCard title="总支出" value={summary.totalExpense} color={token.colorError} icon={<ArrowDownOutlined />} /></Col>
       </Row>
-      <Card variant="borderless" style={{ borderRadius: 8, border: `1px solid ${token.colorBorder}` }} title={<Space><WalletOutlined /><span>收支分析</span></Space>} extra={<Button type="primary" icon={<SettingOutlined />} onClick={() => setBudgetModalVisible(true)}>预算</Button>}>
+      <Card variant="borderless" style={{ borderRadius: 8, border: `1px solid ${token.colorBorder}` }} title={<Space><WalletOutlined /><span>收支分析</span></Space>}>
         <Spin spinning={loading}><Tabs defaultActiveKey="1" items={tabItems} /></Spin>
       </Card>
-      <Modal title="设置预算" open={budgetModalVisible} onCancel={() => setBudgetModalVisible(false)} footer={null} zIndex={1050}>
-        <Alert title="超支后列表显示警告" type="info" showIcon style={{ marginBottom: 16 }} />
-        <Form form={budgetForm} onFinish={handleBudgetFinish} layout="vertical">
-          <Form.Item name="category" label="分类" rules={[{ required: true }]}><Select options={EXPENSE_CATEGORIES.map(c => ({ value: c, label: c }))} /></Form.Item>
-          <Form.Item name="limit" label="上限金额" rules={[{ required: true }]}><InputNumber prefix="¥" style={{ width: '100%' }} /></Form.Item>
-          <Button type="primary" htmlType="submit" block>保存</Button>
-        </Form>
-      </Modal>
     </div>
   );
 }
