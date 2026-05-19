@@ -6,21 +6,17 @@ import com.gcc_0119.finance_tracker.model.Account;
 import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.TransactionRepository;
-import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -126,48 +122,13 @@ public class TransactionService {
                 .collect(Collectors.toList());
     }
 
-    public Map<String, BigDecimal> getTotalByType(String userId, LocalDateTime start, LocalDateTime end) {
-        MatchOperation matchUser = Aggregation.match(
-                Criteria.where("userId").is(userId).and("timestamp").gte(start).lte(end));
-        GroupOperation group = Aggregation.group("type").sum("amount").as("total");
-        Aggregation agg = Aggregation.newAggregation(matchUser, group);
-
-        List<Document> results = mongoTemplate.aggregate(agg, "transactions", Document.class).getMappedResults();
-
-        return results.stream().collect(Collectors.toMap(
-                r -> (String) r.get("_id"),
-                r -> {
-                    Object total = r.get("total");
-                    BigDecimal val = BigDecimal.ZERO;
-                    if (total != null) {
-                        val = new BigDecimal(total.toString());
-                    }
-                    return val.setScale(2, RoundingMode.HALF_UP);
-                }));
-    }
-
-    public Map<String, BigDecimal> getTotalByCategory(String userId, String type, LocalDateTime start,
-            LocalDateTime end) {
-        Criteria criteria = Criteria.where("userId").is(userId).and("timestamp").gte(start).lte(end);
-        if (type != null && !type.isEmpty()) {
-            criteria.and("type").is(type);
+    public TransactionDTO getTransactionById(String userId, String transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new BusinessException(404, "交易记录不存在"));
+        if (!transaction.getUserId().equals(userId)) {
+            throw new BusinessException(404, "交易记录不存在或无权访问");
         }
-        MatchOperation match = Aggregation.match(criteria);
-        GroupOperation group = Aggregation.group("category").sum("amount").as("total");
-        Aggregation agg = Aggregation.newAggregation(match, group);
-
-        List<Document> results = mongoTemplate.aggregate(agg, "transactions", Document.class).getMappedResults();
-
-        return results.stream().collect(Collectors.toMap(
-                r -> (String) r.get("_id"),
-                r -> {
-                    Object total = r.get("total");
-                    BigDecimal val = BigDecimal.ZERO;
-                    if (total != null) {
-                        val = new BigDecimal(total.toString());
-                    }
-                    return val.setScale(2, RoundingMode.HALF_UP);
-                }));
+        return convertToDTO(transaction);
     }
 
     public List<TransactionDTO> getTransactionsByDateRange(String userId, LocalDateTime start, LocalDateTime end) {

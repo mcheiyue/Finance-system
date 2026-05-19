@@ -7,11 +7,9 @@ import com.gcc_0119.finance_tracker.service.TransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/transactions")
@@ -40,22 +38,10 @@ public class TransactionController {
         return ApiResponse.success(transactionService.getAllTransactions(userId));
     }
 
-    @GetMapping("/stats/type")
-    public ApiResponse<Map<String, BigDecimal>> getStatsByType(@RequestParam(defaultValue = "30") int days) {
+    @GetMapping("/{id}")
+    public ApiResponse<TransactionDTO> getTransactionById(@PathVariable String id) {
         String userId = securityUtils.getCurrentUserId();
-        LocalDateTime end = LocalDateTime.now();
-        LocalDateTime start = end.minus(days, ChronoUnit.DAYS);
-        return ApiResponse.success(transactionService.getTotalByType(userId, start, end));
-    }
-
-    @GetMapping("/stats/category")
-    public ApiResponse<Map<String, BigDecimal>> getStatsByCategory(
-            @RequestParam(required = false) String type,
-            @RequestParam(defaultValue = "30") int days) {
-        String userId = securityUtils.getCurrentUserId();
-        LocalDateTime end = LocalDateTime.now();
-        LocalDateTime start = end.minus(days, ChronoUnit.DAYS);
-        return ApiResponse.success(transactionService.getTotalByCategory(userId, type, start, end));
+        return ApiResponse.success(transactionService.getTransactionById(userId, id));
     }
 
     @GetMapping("/stats/recent")
