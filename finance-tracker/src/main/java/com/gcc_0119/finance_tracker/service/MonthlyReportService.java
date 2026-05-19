@@ -10,11 +10,13 @@ import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.MonthlyReportRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -53,7 +55,14 @@ public class MonthlyReportService {
      */
     public MonthlyReport getOrCreateReport(String userId, String month) {
         return monthlyReportRepository.findByUserIdAndMonth(userId, month)
-                .orElseGet(() -> createNewReport(userId, month));
+                .orElseGet(() -> {
+                    try {
+                        return createNewReport(userId, month);
+                    } catch (DuplicateKeyException e) {
+                        return monthlyReportRepository.findByUserIdAndMonth(userId, month)
+                                .orElseThrow(() -> e);
+                    }
+                });
     }
 
     /**
@@ -145,11 +154,13 @@ public class MonthlyReportService {
                 .orElseThrow(() -> new BusinessException(404, "月报不存在"));
     }
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTransactionCreated(TransactionCreatedEvent event) {
         onTransactionCreated(event.getTransaction(), event.getFromAccount(), event.getToAccount());
     }
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTransactionReversed(TransactionReversedEvent event) {
         onTransactionReversed(event.getOriginalTransaction(), event.getFromAccount(), event.getToAccount());
