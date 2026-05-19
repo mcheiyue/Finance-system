@@ -49,6 +49,20 @@ public class WebSecurityConfig {
                                 "未授权: " + authException.getMessage())))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/favicon.ico",
+                                "/assets/**",
+                                "/login",
+                                "/register",
+                                "/stats",
+                                "/budgets",
+                                "/reports",
+                                "/import",
+                                "/admin",
+                                "/profile"
+                        ).permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/test/**").permitAll()
                         .anyRequest().authenticated()
