@@ -154,13 +154,13 @@ public class MonthlyReportService {
                 .orElseThrow(() -> new BusinessException(404, "月报不存在"));
     }
 
-    @Async
+    @Async("taskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTransactionCreated(TransactionCreatedEvent event) {
         onTransactionCreated(event.getTransaction(), event.getFromAccount(), event.getToAccount());
     }
 
-    @Async
+    @Async("taskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleTransactionReversed(TransactionReversedEvent event) {
         onTransactionReversed(event.getOriginalTransaction(), event.getFromAccount(), event.getToAccount());
