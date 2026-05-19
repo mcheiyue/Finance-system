@@ -66,11 +66,7 @@ public class TransactionService {
             throw new BusinessException("余额不足");
         }
 
-        Account credited = creditAccount(toAccountId, userId, amount);
-        if (credited == null) {
-            creditAccount(fromAccountId, userId, amount);
-            throw new BusinessException(500, "转入账户操作失败，已回滚");
-        }
+        creditAccount(toAccountId, userId, amount);
 
         Transaction transaction = new Transaction();
         transaction.setUserId(userId);
@@ -112,13 +108,7 @@ public class TransactionService {
                 .orElseThrow(() -> new BusinessException(500, "冲正失败：转入账户不存在"));
         Account debited = debitAccount(original.getToAccountId(), userId, amount, toAcc.getVersion());
         if (debited == null) {
-            // 补偿回滚：从原转出账户扣回退款
-            Account fromAcc = accountRepository.findByIdAndUserId(original.getFromAccountId(), userId)
-                    .orElse(null);
-            if (fromAcc != null) {
-                debitAccount(original.getFromAccountId(), userId, amount, fromAcc.getVersion());
-            }
-            throw new BusinessException("冲正失败：转入账户余额不足，已回滚");
+            throw new BusinessException("冲正失败：转入账户余额不足");
         }
 
         original.setReversed(true);

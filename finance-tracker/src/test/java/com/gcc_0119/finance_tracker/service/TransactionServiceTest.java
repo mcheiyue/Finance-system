@@ -308,7 +308,7 @@ class TransactionServiceTest {
     }
 
     @Test
-    void reverseTransaction_insufficientBalanceForDebitBack_throwsAndCompensates() {
+    void reverseTransaction_insufficientBalanceForDebitBack_throwsBusinessException() {
         Transaction original = new Transaction();
         original.setId("txn-orig");
         original.setUserId(USER_ID);
@@ -323,14 +323,11 @@ class TransactionServiceTest {
         when(transactionRepository.findById("txn-orig")).thenReturn(Optional.of(original));
         when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
                 .thenReturn(Optional.of(buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("100.00"))));
-        when(accountRepository.findByIdAndUserId(FROM_ACCOUNT_ID, USER_ID))
-                .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(mongoTemplate.findAndModify(
                 any(Query.class), any(UpdateDefinition.class),
                 Mockito.<FindAndModifyOptions>any(), eq(Account.class)))
                 .thenReturn(refunded)
-                .thenReturn(null)
-                .thenReturn(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00")));
+                .thenReturn(null);
 
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> transactionService.reverseTransaction(USER_ID, "txn-orig"));
