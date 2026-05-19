@@ -1,14 +1,20 @@
 package com.gcc_0119.finance_tracker.service;
 
 import com.gcc_0119.finance_tracker.dto.TransactionDTO;
+import com.gcc_0119.finance_tracker.exception.BusinessException;
+import com.gcc_0119.finance_tracker.model.Account;
 import com.gcc_0119.finance_tracker.model.Transaction;
+import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.TransactionRepository;
+import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
-import org.bson.Document;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -23,37 +29,94 @@ public class TransactionService {
     @Autowired
     private TransactionRepository transactionRepository;
     @Autowired
+    private AccountRepository accountRepository;
+    @Autowired
     private MongoTemplate mongoTemplate;
 
-    private TransactionDTO convertToDTO(Transaction t) {
-        TransactionDTO dto = new TransactionDTO();
-        dto.setId(t.getId());
-        dto.setFromAccountId(t.getFromAccountId());
-        dto.setToAccountId(t.getToAccountId());
-        dto.setAmount(t.getAmount());
-        dto.setDescription(t.getDescription());
-        dto.setReversalOfId(t.getReversalOfId());
-        dto.setReversed(t.isReversed());
-        dto.setTimestamp(t.getTimestamp());
-        dto.setCreatedAt(t.getCreatedAt());
-        return dto;
-    }
+    public TransactionDTO createTransaction(String userId, TransactionDTO request) {
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("交易金额必须为正数");
+        }
 
-    private Transaction convertToEntity(TransactionDTO dto) {
-        Transaction t = new Transaction();
-        t.setFromAccountId(dto.getFromAccountId());
-        t.setToAccountId(dto.getToAccountId());
-        t.setAmount(dto.getAmount());
-        t.setDescription(dto.getDescription());
-        t.setTimestamp(dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now());
-        return t;
-    }
+        String fromAccountId = request.getFromAccountId();
+        String toAccountId = request.getToAccountId();
 
-    public TransactionDTO save(String userId, TransactionDTO transactionDTO) {
-        Transaction transaction = convertToEntity(transactionDTO);
+        if (fromAccountId == null || fromAccountId.isBlank()
+                || toAccountId == null || toAccountId.isBlank()) {
+            throw new BusinessException("转出账户和转入账户不能为空");
+        }
+        if (fromAccountId.equals(toAccountId)) {
+            throw new BusinessException("转出账户和转入账户不能相同");
+        }
+
+        BigDecimal amount = request.getAmount();
+
+        accountRepository.findByIdAndUserId(fromAccountId, userId)
+                .orElseThrow(() -> new BusinessException(404, "转出账户不存在或无权访问"));
+        accountRepository.findByIdAndUserId(toAccountId, userId)
+                .orElseThrow(() -> new BusinessException(404, "转入账户不存在或无权访问"));
+
+        Account debited = debitAccount(fromAccountId, userId, amount);
+        if (debited == null) {
+            throw new BusinessException("余额不足");
+        }
+
+        Account credited = creditAccount(toAccountId, userId, amount);
+        if (credited == null) {
+            creditAccount(fromAccountId, userId, amount);
+            throw new BusinessException(500, "转入账户操作失败，已回滚");
+        }
+
+        Transaction transaction = new Transaction();
         transaction.setUserId(userId);
+        transaction.setFromAccountId(fromAccountId);
+        transaction.setToAccountId(toAccountId);
+        transaction.setAmount(amount);
+        transaction.setDescription(request.getDescription());
+        transaction.setTimestamp(LocalDateTime.now());
+
         Transaction saved = transactionRepository.save(transaction);
         return convertToDTO(saved);
+    }
+
+    public TransactionDTO reverseTransaction(String userId, String transactionId) {
+        Transaction original = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new BusinessException(404, "交易记录不存在"));
+
+        if (!original.getUserId().equals(userId)) {
+            throw new BusinessException(404, "交易记录不存在或无权访问");
+        }
+        if (original.isReversed()) {
+            throw new BusinessException("该交易已被冲正，不能重复冲正");
+        }
+
+        BigDecimal amount = original.getAmount();
+
+        Account refunded = creditAccount(original.getFromAccountId(), userId, amount);
+        if (refunded == null) {
+            throw new BusinessException(500, "冲正失败：退款操作异常");
+        }
+
+        Account debited = debitAccount(original.getToAccountId(), userId, amount);
+        if (debited == null) {
+            debitAccount(original.getFromAccountId(), userId, amount);
+            throw new BusinessException("冲正失败：转入账户余额不足，已回滚");
+        }
+
+        original.setReversed(true);
+        transactionRepository.save(original);
+
+        Transaction reversal = new Transaction();
+        reversal.setUserId(userId);
+        reversal.setFromAccountId(original.getToAccountId());
+        reversal.setToAccountId(original.getFromAccountId());
+        reversal.setAmount(amount);
+        reversal.setDescription("冲正: " + (original.getDescription() != null ? original.getDescription() : ""));
+        reversal.setReversalOfId(transactionId);
+        reversal.setTimestamp(LocalDateTime.now());
+
+        Transaction savedReversal = transactionRepository.save(reversal);
+        return convertToDTO(savedReversal);
     }
 
     public List<TransactionDTO> getAllTransactions(String userId) {
@@ -61,29 +124,6 @@ public class TransactionService {
                 .sorted((t1, t2) -> t2.getTimestamp().compareTo(t1.getTimestamp()))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
-    }
-
-    public void deleteById(String userId, String id) {
-        Transaction t = transactionRepository.findById(id).orElse(null);
-        if (t != null && t.getUserId().equals(userId)) {
-            transactionRepository.deleteById(id);
-        } else {
-            throw new RuntimeException("无权删除此记录或记录不存在");
-        }
-    }
-
-    public TransactionDTO update(String userId, String id, TransactionDTO transactionDTO) {
-        Transaction existing = transactionRepository.findById(id).orElse(null);
-        if (existing != null && existing.getUserId().equals(userId)) {
-            existing.setAmount(transactionDTO.getAmount());
-            existing.setFromAccountId(transactionDTO.getFromAccountId());
-            existing.setToAccountId(transactionDTO.getToAccountId());
-            existing.setDescription(transactionDTO.getDescription());
-            existing.setTimestamp(transactionDTO.getTimestamp());
-            return convertToDTO(transactionRepository.save(existing));
-        } else {
-            throw new RuntimeException("无权修改此记录或记录不存在");
-        }
     }
 
     public Map<String, BigDecimal> getTotalByType(String userId, LocalDateTime start, LocalDateTime end) {
@@ -132,10 +172,41 @@ public class TransactionService {
 
     public List<TransactionDTO> getTransactionsByDateRange(String userId, LocalDateTime start, LocalDateTime end) {
         Criteria criteria = Criteria.where("timestamp").gte(start).lte(end).and("userId").is(userId);
-        return mongoTemplate.find(org.springframework.data.mongodb.core.query.Query.query(criteria), Transaction.class)
+        return mongoTemplate.find(Query.query(criteria), Transaction.class)
                 .stream()
                 .sorted((t1, t2) -> t1.getTimestamp().compareTo(t2.getTimestamp()))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+    }
+
+    private Account debitAccount(String accountId, String userId, BigDecimal amount) {
+        Query query = new Query(Criteria.where("id").is(accountId)
+                .and("userId").is(userId)
+                .and("balance").gte(amount));
+        Update update = new Update().inc("balance", amount.negate());
+        return mongoTemplate.findAndModify(query, update,
+                FindAndModifyOptions.options().returnNew(true), Account.class);
+    }
+
+    private Account creditAccount(String accountId, String userId, BigDecimal amount) {
+        Query query = new Query(Criteria.where("id").is(accountId)
+                .and("userId").is(userId));
+        Update update = new Update().inc("balance", amount);
+        return mongoTemplate.findAndModify(query, update,
+                FindAndModifyOptions.options().returnNew(true), Account.class);
+    }
+
+    private TransactionDTO convertToDTO(Transaction t) {
+        TransactionDTO dto = new TransactionDTO();
+        dto.setId(t.getId());
+        dto.setFromAccountId(t.getFromAccountId());
+        dto.setToAccountId(t.getToAccountId());
+        dto.setAmount(t.getAmount());
+        dto.setDescription(t.getDescription());
+        dto.setReversalOfId(t.getReversalOfId());
+        dto.setReversed(t.isReversed());
+        dto.setTimestamp(t.getTimestamp());
+        dto.setCreatedAt(t.getCreatedAt());
+        return dto;
     }
 }

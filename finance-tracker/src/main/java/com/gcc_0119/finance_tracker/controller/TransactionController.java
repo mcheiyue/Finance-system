@@ -1,7 +1,7 @@
 package com.gcc_0119.finance_tracker.controller;
 
 import com.gcc_0119.finance_tracker.common.ApiResponse;
-import com.gcc_0119.finance_tracker.common.SecurityUtils; // 引入新工具
+import com.gcc_0119.finance_tracker.common.SecurityUtils;
 import com.gcc_0119.finance_tracker.dto.TransactionDTO;
 import com.gcc_0119.finance_tracker.service.TransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,32 +20,24 @@ public class TransactionController {
     @Autowired
     private TransactionService transactionService;
     @Autowired
-    private SecurityUtils securityUtils; // 注入工具类
+    private SecurityUtils securityUtils;
 
     @PostMapping
     public ApiResponse<TransactionDTO> createTransaction(@RequestBody TransactionDTO transactionDTO) {
-        String userId = securityUtils.getCurrentUserId(); // 获取 ID
-        return ApiResponse.success(transactionService.save(userId, transactionDTO)); // 传给 Service
+        String userId = securityUtils.getCurrentUserId();
+        return ApiResponse.success(transactionService.createTransaction(userId, transactionDTO));
+    }
+
+    @PostMapping("/{id}/reverse")
+    public ApiResponse<TransactionDTO> reverseTransaction(@PathVariable String id) {
+        String userId = securityUtils.getCurrentUserId();
+        return ApiResponse.success(transactionService.reverseTransaction(userId, id));
     }
 
     @GetMapping
     public ApiResponse<List<TransactionDTO>> getAllTransactions() {
         String userId = securityUtils.getCurrentUserId();
         return ApiResponse.success(transactionService.getAllTransactions(userId));
-    }
-
-    @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteTransaction(@PathVariable String id) {
-        String userId = securityUtils.getCurrentUserId();
-        transactionService.deleteById(userId, id);
-        return ApiResponse.success("删除成功", null);
-    }
-
-    @PutMapping("/{id}")
-    public ApiResponse<TransactionDTO> updateTransaction(@PathVariable String id,
-            @RequestBody TransactionDTO transactionDTO) {
-        String userId = securityUtils.getCurrentUserId();
-        return ApiResponse.success("更新成功", transactionService.update(userId, id, transactionDTO));
     }
 
     @GetMapping("/stats/type")
