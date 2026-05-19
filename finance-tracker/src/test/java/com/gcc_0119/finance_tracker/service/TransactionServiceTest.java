@@ -43,6 +43,8 @@ class TransactionServiceTest {
     private MongoTemplate mongoTemplate;
     @Mock
     private AnomalyDetectionService anomalyDetectionService;
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private TransactionService transactionService;
@@ -233,6 +235,8 @@ class TransactionServiceTest {
         Account debited = buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("800.00"));
 
         when(transactionRepository.findById("txn-orig")).thenReturn(Optional.of(original));
+        when(accountRepository.findByIdAndUserId(FROM_ACCOUNT_ID, USER_ID))
+                .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
                 .thenReturn(Optional.of(buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(mongoTemplate.findAndModify(
@@ -321,6 +325,8 @@ class TransactionServiceTest {
         Account refunded = buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1500.00"));
 
         when(transactionRepository.findById("txn-orig")).thenReturn(Optional.of(original));
+        when(accountRepository.findByIdAndUserId(FROM_ACCOUNT_ID, USER_ID))
+                .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
         when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
                 .thenReturn(Optional.of(buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("100.00"))));
         when(mongoTemplate.findAndModify(

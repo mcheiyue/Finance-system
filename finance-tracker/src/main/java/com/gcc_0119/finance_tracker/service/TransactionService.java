@@ -3,12 +3,15 @@ package com.gcc_0119.finance_tracker.service;
 import com.gcc_0119.finance_tracker.dto.AnomalyResult;
 import com.gcc_0119.finance_tracker.dto.PaginatedResponse;
 import com.gcc_0119.finance_tracker.dto.TransactionDTO;
+import com.gcc_0119.finance_tracker.event.TransactionCreatedEvent;
+import com.gcc_0119.finance_tracker.event.TransactionReversedEvent;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.Account;
 import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.TransactionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -34,6 +37,8 @@ public class TransactionService {
     private MongoTemplate mongoTemplate;
     @Autowired
     private AnomalyDetectionService anomalyDetectionService;
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TransactionDTO createTransaction(String userId, TransactionDTO request) {
@@ -56,7 +61,7 @@ public class TransactionService {
 
         Account fromAcc = accountRepository.findByIdAndUserId(fromAccountId, userId)
                 .orElseThrow(() -> new BusinessException(404, "转出账户不存在或无权访问"));
-        accountRepository.findByIdAndUserId(toAccountId, userId)
+        Account toAcc = accountRepository.findByIdAndUserId(toAccountId, userId)
                 .orElseThrow(() -> new BusinessException(404, "转入账户不存在或无权访问"));
 
         AnomalyResult anomalyResult = anomalyDetectionService.detectAnomaly(userId, fromAccountId, amount);
@@ -77,6 +82,8 @@ public class TransactionService {
         transaction.setTimestamp(LocalDateTime.now());
 
         Transaction saved = transactionRepository.save(transaction);
+        eventPublisher.publishEvent(new TransactionCreatedEvent(saved, fromAcc, toAcc));
+
         TransactionDTO dto = convertToDTO(saved);
         if (anomalyResult.isAnomalous()) {
             dto.setAnomalyWarnings(anomalyResult.getWarnings());
@@ -98,7 +105,8 @@ public class TransactionService {
 
         BigDecimal amount = original.getAmount();
 
-        // 冲正：先退款到原转出账户（credit），再从原转入账户扣回（debit）
+        Account fromAcc = accountRepository.findByIdAndUserId(original.getFromAccountId(), userId)
+                .orElseThrow(() -> new BusinessException(500, "冲正失败：原转出账户不存在"));
         Account refunded = creditAccount(original.getFromAccountId(), userId, amount);
         if (refunded == null) {
             throw new BusinessException(500, "冲正失败：退款操作异常");
@@ -124,6 +132,7 @@ public class TransactionService {
         reversal.setTimestamp(LocalDateTime.now());
 
         Transaction savedReversal = transactionRepository.save(reversal);
+        eventPublisher.publishEvent(new TransactionReversedEvent(original, fromAcc, toAcc));
         return convertToDTO(savedReversal);
     }
 
@@ -186,14 +195,25 @@ public class TransactionService {
                 .and("balance").gte(amount)
                 .and("version").is(currentVersion));
         Update update = new Update().inc("balance", amount.negate()).inc("version", 1);
-        return mongoTemplate.findAndModify(query, update,
+        Account result = mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), Account.class);
+        if (result == null) {
+            Account account = accountRepository.findByIdAndUserId(accountId, userId).orElse(null);
+            if (account == null) {
+                return null;
+            }
+            if (account.getBalance().compareTo(amount) < 0) {
+                throw new BusinessException("余额不足");
+            }
+            throw new BusinessException(509, "系统繁忙，请重试");
+        }
+        return result;
     }
 
     private Account creditAccount(String accountId, String userId, BigDecimal amount) {
         Query query = new Query(Criteria.where("id").is(accountId)
                 .and("userId").is(userId));
-        Update update = new Update().inc("balance", amount);
+        Update update = new Update().inc("balance", amount).inc("version", 1);
         return mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), Account.class);
     }

@@ -1,5 +1,7 @@
 package com.gcc_0119.finance_tracker.service;
 
+import com.gcc_0119.finance_tracker.event.TransactionCreatedEvent;
+import com.gcc_0119.finance_tracker.event.TransactionReversedEvent;
 import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.Account;
 import com.gcc_0119.finance_tracker.model.AccountType;
@@ -8,6 +10,7 @@ import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.MonthlyReportRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -137,5 +140,15 @@ public class MonthlyReportService {
     public MonthlyReport getReport(String userId, String month) {
         return monthlyReportRepository.findByUserIdAndMonth(userId, month)
                 .orElseThrow(() -> new BusinessException(404, "月报不存在"));
+    }
+
+    @EventListener
+    public void handleTransactionCreated(TransactionCreatedEvent event) {
+        onTransactionCreated(event.getTransaction(), event.getFromAccount(), event.getToAccount());
+    }
+
+    @EventListener
+    public void handleTransactionReversed(TransactionReversedEvent event) {
+        onTransactionReversed(event.getOriginalTransaction(), event.getFromAccount(), event.getToAccount());
     }
 }
