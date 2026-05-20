@@ -491,4 +491,44 @@ class TransactionServiceTest {
         assertEquals(3L, result.getTotalElements());
         assertEquals(2, result.getTotalPages());
     }
+
+    @Test
+    void createTransaction_creditAccountFails_throwsBusinessException() {
+        BigDecimal amount = new BigDecimal("100.00");
+        Account debitedAccount = buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("900.00"));
+
+        when(accountRepository.findByIdAndUserId(FROM_ACCOUNT_ID, USER_ID))
+                .thenReturn(Optional.of(buildAccount(FROM_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
+        when(accountRepository.findByIdAndUserId(TO_ACCOUNT_ID, USER_ID))
+                .thenReturn(Optional.of(buildAccount(TO_ACCOUNT_ID, USER_ID, new BigDecimal("1000.00"))));
+        when(anomalyDetectionService.detectAnomaly(USER_ID, FROM_ACCOUNT_ID, amount))
+                .thenReturn(AnomalyResult.normal());
+        when(mongoTemplate.findAndModify(
+                any(Query.class), any(UpdateDefinition.class),
+                Mockito.<FindAndModifyOptions>any(), eq(Account.class)))
+                .thenReturn(debitedAccount)
+                .thenReturn(null);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> transactionService.createTransaction(USER_ID, buildRequest(amount)));
+
+        assertTrue(ex.getMessage().contains("系统繁忙"));
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    void getTransactionsPaginated_withKeyword_usesEscapedRegex() {
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+
+        when(mongoTemplate.count(queryCaptor.capture(), eq(Transaction.class))).thenReturn(0L);
+        when(mongoTemplate.find(queryCaptor.capture(), eq(Transaction.class)))
+                .thenReturn(Collections.emptyList());
+
+        String dangerousKeyword = "test.*[a-z](group)";
+        transactionService.getTransactionsPaginated(
+                USER_ID, 0, 20, null, null, null, null, dangerousKeyword);
+
+        verify(mongoTemplate).count(any(Query.class), eq(Transaction.class));
+        verify(mongoTemplate).find(any(Query.class), eq(Transaction.class));
+    }
 }

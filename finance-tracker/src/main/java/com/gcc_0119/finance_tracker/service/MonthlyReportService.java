@@ -13,6 +13,9 @@ import com.gcc_0119.finance_tracker.repository.TransactionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.ArithmeticOperators;
+import org.springframework.data.mongodb.core.aggregation.ComparisonOperators;
+import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -140,7 +143,7 @@ public class MonthlyReportService {
      * @param toAccount 目标账户
      */
     public void onTransactionReversed(Transaction originalTransaction, Account fromAccount, Account toAccount) {
-        String month = LocalDateTime.now().format(MONTH_FORMAT);
+        String month = originalTransaction.getTimestamp().format(MONTH_FORMAT);
         getOrCreateReport(originalTransaction.getUserId(), month);
 
         BigDecimal amount = originalTransaction.getAmount();
@@ -301,20 +304,19 @@ public class MonthlyReportService {
     }
 
     private void updateSavingRate(String userId, String month) {
-        MonthlyReport report = monthlyReportRepository.findByUserIdAndMonth(userId, month).orElse(null);
-        if (report == null) return;
-
-        BigDecimal savingRate = BigDecimal.ZERO;
-        if (report.getTotalIncome().compareTo(BigDecimal.ZERO) > 0) {
-            savingRate = report.getBalance()
-                    .divide(report.getTotalIncome(), 4, java.math.RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"));
-        }
+        Update update = new Update();
+        update.set("savingRate",
+                ConditionalOperators.when(
+                                ComparisonOperators.valueOf("totalIncome").greaterThanValue(BigDecimal.ZERO))
+                        .thenValueOf(
+                                ArithmeticOperators.valueOf(
+                                        ArithmeticOperators.valueOf("balance").divideBy("totalIncome")
+                                ).multiplyBy(100))
+                        .otherwise(BigDecimal.ZERO));
 
         mongoTemplate.updateFirst(
                 Query.query(Criteria.where("userId").is(userId).and("month").is(month)),
-                Update.update("savingRate", savingRate),
-                MonthlyReport.class);
+                update, MonthlyReport.class);
     }
 
     @Async("taskExecutor")

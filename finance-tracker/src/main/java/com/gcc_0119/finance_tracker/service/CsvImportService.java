@@ -6,6 +6,7 @@ import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.Account;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -25,6 +26,15 @@ public class CsvImportService {
 
     @Autowired
     private AccountRepository accountRepository;
+
+    /**
+     * CSV 预览最大行数（不含表头）。
+     *
+     * 说明：该类在单元测试中以 Mockito 方式构造时不会触发 Spring 的 @Value 注入，
+     * 若不设置默认值将导致 maxRows=0，从而所有用例都被判定为超限。
+     */
+    @Value("${app.csv.import.max-rows:1000}")
+    private int maxRows = 1000;
 
     static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -49,6 +59,11 @@ public class CsvImportService {
                 if (isHeader) {
                     isHeader = false;
                     continue;
+                }
+
+                // 行数上限检查（不含表头）
+                if ((totalRows - 1) > maxRows) {
+                    throw new BusinessException(400, "CSV 行数超过上限 " + maxRows + " 行，当前已超过");
                 }
 
                 try {

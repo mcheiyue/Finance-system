@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -69,7 +70,7 @@ public class TransactionService {
 
         debitAccount(fromAcc, userId, amount);
 
-        creditAccount(toAccountId, userId, amount);
+        creditAccount(toAcc, userId, amount);
 
         Transaction transaction = new Transaction();
         transaction.setUserId(userId);
@@ -112,7 +113,7 @@ public class TransactionService {
 
         Account fromAcc = accountRepository.findByIdAndUserId(original.getFromAccountId(), userId)
                 .orElseThrow(() -> new BusinessException(500, "冲正失败：原转出账户不存在"));
-        creditAccount(original.getFromAccountId(), userId, amount);
+        creditAccount(fromAcc, userId, amount);
 
         Account toAcc = accountRepository.findByIdAndUserId(original.getToAccountId(), userId)
                 .orElseThrow(() -> new BusinessException(500, "冲正失败：转入账户不存在"));
@@ -180,7 +181,7 @@ public class TransactionService {
             query.addCriteria(Criteria.where("timestamp").lte(endDate));
         }
         if (keyword != null && !keyword.isBlank()) {
-            query.addCriteria(Criteria.where("description").regex(keyword, "i"));
+            query.addCriteria(Criteria.where("description").regex(Pattern.quote(keyword), "i"));
         }
 
         long total = mongoTemplate.count(query, Transaction.class);
@@ -217,12 +218,17 @@ public class TransactionService {
         return result;
     }
 
-    private Account creditAccount(String accountId, String userId, BigDecimal amount) {
-        Query query = new Query(Criteria.where("id").is(accountId)
-                .and("userId").is(userId));
+    private Account creditAccount(Account account, String userId, BigDecimal amount) {
+        Query query = new Query(Criteria.where("id").is(account.getId())
+                .and("userId").is(userId)
+                .and("version").is(account.getVersion()));
         Update update = new Update().inc("balance", amount).inc("version", 1);
-        return mongoTemplate.findAndModify(query, update,
+        Account result = mongoTemplate.findAndModify(query, update,
                 FindAndModifyOptions.options().returnNew(true), Account.class);
+        if (result == null) {
+            throw new BusinessException(509, "系统繁忙，请重试");
+        }
+        return result;
     }
 
     private TransactionDTO convertToDTO(Transaction t) {

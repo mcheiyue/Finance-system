@@ -162,12 +162,12 @@ class MonthlyReportServiceTest {
 
     @Test
     void onTransactionReversed_decrementsIncome() {
-        String currentMonth = LocalDateTime.now().format(MONTH_FORMAT);
+        String month = LocalDateTime.of(2026, 5, 10, 9, 0).format(MONTH_FORMAT);
         MonthlyReport report = new MonthlyReport();
         report.setId("report1");
         report.setUserId("user1");
-        report.setMonth(currentMonth);
-        when(monthlyReportRepository.findByUserIdAndMonth("user1", currentMonth))
+        report.setMonth(month);
+        when(monthlyReportRepository.findByUserIdAndMonth("user1", month))
                 .thenReturn(Optional.of(report));
 
         Account incomeAccount = new Account();
@@ -185,17 +185,18 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionReversed(original, incomeAccount, assetAccount);
 
+        verify(monthlyReportRepository).findByUserIdAndMonth("user1", "2026-05");
         verify(mongoTemplate, times(2)).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test
     void onTransactionReversed_decrementsExpense() {
-        String currentMonth = LocalDateTime.now().format(MONTH_FORMAT);
+        String month = LocalDateTime.of(2026, 5, 12, 16, 0).format(MONTH_FORMAT);
         MonthlyReport report = new MonthlyReport();
         report.setId("report1");
         report.setUserId("user1");
-        report.setMonth(currentMonth);
-        when(monthlyReportRepository.findByUserIdAndMonth("user1", currentMonth))
+        report.setMonth(month);
+        when(monthlyReportRepository.findByUserIdAndMonth("user1", month))
                 .thenReturn(Optional.of(report));
 
         Account expenseAccount = new Account();
@@ -213,6 +214,7 @@ class MonthlyReportServiceTest {
 
         monthlyReportService.onTransactionReversed(original, assetAccount, expenseAccount);
 
+        verify(monthlyReportRepository).findByUserIdAndMonth("user1", "2026-05");
         verify(mongoTemplate, times(2)).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
@@ -298,5 +300,66 @@ class MonthlyReportServiceTest {
 
         assertThrows(BusinessException.class,
                 () -> monthlyReportService.getReport("user1", "2026-05"));
+    }
+
+    @Test
+    void onTransactionReversed_usesOriginalTransactionMonth() {
+        String pastMonth = "2026-03";
+        MonthlyReport report = new MonthlyReport();
+        report.setId("report-march");
+        report.setUserId("user1");
+        report.setMonth(pastMonth);
+        when(monthlyReportRepository.findByUserIdAndMonth("user1", pastMonth))
+                .thenReturn(Optional.of(report));
+
+        Account incomeAccount = new Account();
+        incomeAccount.setId("inc1");
+        incomeAccount.setType(AccountType.INCOME);
+        incomeAccount.setName("工资");
+        Account assetAccount = new Account();
+        assetAccount.setId("asset1");
+        assetAccount.setType(AccountType.ASSET);
+
+        Transaction original = new Transaction();
+        original.setUserId("user1");
+        original.setAmount(new BigDecimal("800.00"));
+        original.setTimestamp(LocalDateTime.of(2026, 3, 15, 10, 0));
+
+        monthlyReportService.onTransactionReversed(original, incomeAccount, assetAccount);
+
+        verify(monthlyReportRepository).findByUserIdAndMonth("user1", pastMonth);
+        verify(monthlyReportRepository, never()).findByUserIdAndMonth("user1", LocalDateTime.now().format(MONTH_FORMAT));
+        verify(mongoTemplate, times(2)).updateFirst(
+                argThat(q -> q.getQueryObject().getString("month").equals(pastMonth)),
+                any(Update.class), eq(MonthlyReport.class));
+    }
+
+    @Test
+    void onTransactionCreated_savingRateUpdateUsesAggregationPipeline() {
+        String month = LocalDateTime.of(2026, 5, 15, 10, 0).format(MONTH_FORMAT);
+        MonthlyReport report = new MonthlyReport();
+        report.setId("report1");
+        report.setUserId("user1");
+        report.setMonth(month);
+        when(monthlyReportRepository.findByUserIdAndMonth("user1", month))
+                .thenReturn(Optional.of(report));
+
+        Account incomeAccount = new Account();
+        incomeAccount.setId("inc1");
+        incomeAccount.setType(AccountType.INCOME);
+        incomeAccount.setName("工资");
+        Account assetAccount = new Account();
+        assetAccount.setId("asset1");
+        assetAccount.setType(AccountType.ASSET);
+
+        Transaction tx = new Transaction();
+        tx.setUserId("user1");
+        tx.setAmount(new BigDecimal("2000.00"));
+        tx.setTimestamp(LocalDateTime.of(2026, 5, 15, 10, 0));
+
+        monthlyReportService.onTransactionCreated(tx, incomeAccount, assetAccount);
+
+        verify(monthlyReportRepository, times(1)).findByUserIdAndMonth("user1", month);
+        verify(mongoTemplate, times(2)).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 }
