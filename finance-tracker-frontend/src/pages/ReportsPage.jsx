@@ -390,18 +390,19 @@ function ReportsPage() {
               ) : (
                 <Table
                   dataSource={reports}
-                columns={columns}
-                rowKey={(record) => record.id || record.month}
-                size="middle"
-                pagination={false}
-                onRow={(record) => ({
-                  onClick: () => setSelectedMonth(record.month),
-                  style: {
-                    cursor: 'pointer',
-                    background: record.month === selectedMonth ? token.colorPrimaryBg : undefined,
-                  },
-                })}
-              />
+                  columns={columns}
+                  rowKey={(record) => record.id || record.month}
+                  size="middle"
+                  pagination={false}
+                  className="reports-month-table"
+                  rowClassName={(record) => (record.month === selectedMonth ? 'reports-row-selected' : '')}
+                  onRow={(record) => ({
+                    onClick: () => setSelectedMonth(record.month),
+                    style: {
+                      cursor: 'pointer',
+                    },
+                  })}
+                />
             )
           ) : (
             !loading && <Empty description="暂无月度报告数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
