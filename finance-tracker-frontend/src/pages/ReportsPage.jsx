@@ -26,30 +26,13 @@ function ReportsPage() {
     getAccounts().then(setAccounts).catch(() => {});
   }, []);
 
-  const loadSelectedDetail = useCallback(async (month) => {
-    if (!month) {
-      setSelectedDetail(null);
-      return;
-    }
-    setDetailLoading(true);
-    try {
-      const data = await getMonthlyReport(month);
-      setSelectedDetail(data || null);
-    } catch (error) {
-      console.error('加载月度报告详情失败:', error);
-      message.error('加载月度报告详情失败');
-    } finally {
-      setDetailLoading(false);
-    }
-  }, [message]);
-
   const loadReports = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getMonthlyReports();
       setReports(data || []);
-      if (data && data.length > 0 && !selectedMonth) {
-        setSelectedMonth(data[0].month);
+      if (data && data.length > 0) {
+        setSelectedMonth((prev) => prev ?? data[0].month);
       }
     } catch (error) {
       console.error('加载月度报告列表失败:', error);
@@ -57,7 +40,7 @@ function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [message, selectedMonth]);
+  }, [message]);
 
   useEffect(() => {
     loadReports();
@@ -69,8 +52,41 @@ function ReportsPage() {
   }, [reports, selectedMonth]);
 
   useEffect(() => {
-    loadSelectedDetail(selectedMonth);
-  }, [selectedMonth, loadSelectedDetail]);
+    let cancelled = false;
+
+    if (!selectedMonth) {
+      setSelectedDetail(null);
+      setDetailLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const fetchSelectedDetail = async () => {
+      setDetailLoading(true);
+      try {
+        const data = await getMonthlyReport(selectedMonth);
+        if (!cancelled) {
+          setSelectedDetail(data || null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('加载月度报告详情失败:', error);
+          message.error('加载月度报告详情失败');
+        }
+      } finally {
+        if (!cancelled) {
+          setDetailLoading(false);
+        }
+      }
+    };
+
+    fetchSelectedDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [message, selectedMonth]);
 
   const displayedReport = selectedDetail || currentReport;
 
