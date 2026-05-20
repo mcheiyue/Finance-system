@@ -487,6 +487,27 @@ div {
   color: #34d399 !important;
 }
 
+/* 当月报告 StatCard - 更轻盈的阴影 */
+[data-theme='light'] .ant-card.report-stat-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme='light'] .ant-card.report-stat-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+  transform: none !important;
+}
+
+[data-theme='dark'] .ant-card.report-stat-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+[data-theme='dark'] .ant-card.report-stat-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  transform: none !important;
+}
+
 @media (max-width: 768px) {
   .site-layout-content {
     padding: 12px !important;

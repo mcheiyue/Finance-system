@@ -74,11 +74,13 @@ function HomePage() {
       const data = await getTransactions();
       setAllData(data?.content ?? []);
     } catch (error) {
-      console.error(error);
+      console.error('加载交易记录失败:', error);
+      message.error('加载交易记录失败，请稍后重试');
+      setAllData([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [message]);
 
   useEffect(() => {
     loadAccounts();

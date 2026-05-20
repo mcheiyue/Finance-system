@@ -1,7 +1,7 @@
 import request from '../utils/request';
 
-export const getTransactions = () => {
-  return request.get('/transactions');
+export const getTransactions = (params = {}) => {
+  return request.get('/transactions', { params: { size: 10000, ...params } });
 };
 
 export const getRecentTransactions = (days = 7) => {
