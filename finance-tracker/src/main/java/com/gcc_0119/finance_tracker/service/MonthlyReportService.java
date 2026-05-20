@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Comparator;
 import java.util.stream.Collectors;
 
 @Service
@@ -204,18 +205,99 @@ public class MonthlyReportService {
             }
 
             List<Transaction> transactions = entry.getValue().stream()
-                    .sorted((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()))
+                    .sorted(Comparator.comparing(Transaction::getTimestamp))
                     .collect(Collectors.toList());
 
-            for (Transaction tx : transactions) {
-                Account fromAccount = accountMap.get(tx.getFromAccountId());
-                Account toAccount = accountMap.get(tx.getToAccountId());
-                if (fromAccount == null || toAccount == null) {
-                    continue;
-                }
-                onTransactionCreated(tx, fromAccount, toAccount);
+            MonthlyReport report = buildBackfilledReport(userId, month, transactions, allTransactions, accountMap);
+            try {
+                monthlyReportRepository.save(report);
+            } catch (DuplicateKeyException ignored) {
+                // 并发下已有其他请求完成回填，忽略即可。
             }
         }
+    }
+
+    private MonthlyReport buildBackfilledReport(String userId,
+                                                String month,
+                                                List<Transaction> monthTransactions,
+                                                List<Transaction> allTransactions,
+                                                Map<String, Account> accountMap) {
+        Map<String, BigDecimal> accountBalances = buildMonthEndBalances(month, allTransactions, accountMap);
+        Map<String, BigDecimal> categoryExpense = new HashMap<>();
+        Map<String, BigDecimal> categoryIncome = new HashMap<>();
+        BigDecimal totalIncome = BigDecimal.ZERO;
+        BigDecimal totalExpense = BigDecimal.ZERO;
+        int transactionCount = 0;
+
+        for (Transaction tx : monthTransactions) {
+            Account fromAccount = accountMap.get(tx.getFromAccountId());
+            Account toAccount = accountMap.get(tx.getToAccountId());
+            if (fromAccount == null || toAccount == null) {
+                continue;
+            }
+
+            BigDecimal amount = tx.getAmount();
+            transactionCount++;
+
+            if (fromAccount.getType() == AccountType.INCOME) {
+                totalIncome = totalIncome.add(amount);
+                categoryIncome.merge(fromAccount.getName(), amount, BigDecimal::add);
+            }
+
+            if (toAccount.getType() == AccountType.EXPENSE) {
+                totalExpense = totalExpense.add(amount);
+                categoryExpense.merge(toAccount.getName(), amount, BigDecimal::add);
+            }
+        }
+
+        BigDecimal balance = totalIncome.subtract(totalExpense);
+        BigDecimal savingRate = BigDecimal.ZERO;
+        if (totalIncome.compareTo(BigDecimal.ZERO) > 0) {
+            savingRate = balance
+                    .divide(totalIncome, 4, java.math.RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
+        }
+
+        MonthlyReport report = new MonthlyReport();
+        report.setUserId(userId);
+        report.setMonth(month);
+        report.setAccountBalances(accountBalances);
+        report.setTotalIncome(totalIncome);
+        report.setTotalExpense(totalExpense);
+        report.setBalance(balance);
+        report.setSavingRate(savingRate);
+        report.setCategoryExpense(categoryExpense);
+        report.setCategoryIncome(categoryIncome);
+        report.setTransactionCount(transactionCount);
+        report.setCreatedAt(LocalDateTime.now());
+        report.setUpdatedAt(LocalDateTime.now());
+        return report;
+    }
+
+    private Map<String, BigDecimal> buildMonthEndBalances(String month,
+                                                          List<Transaction> allTransactions,
+                                                          Map<String, Account> accountMap) {
+        Map<String, BigDecimal> balances = new HashMap<>();
+        for (Account account : accountMap.values()) {
+            balances.put(account.getId(), account.getBalance());
+        }
+
+        for (Transaction tx : allTransactions) {
+            String txMonth = tx.getTimestamp().format(MONTH_FORMAT);
+            if (txMonth.compareTo(month) <= 0) {
+                continue;
+            }
+
+            BigDecimal amount = tx.getAmount();
+            if (balances.containsKey(tx.getFromAccountId())) {
+                balances.merge(tx.getFromAccountId(), amount, BigDecimal::add);
+            }
+            if (balances.containsKey(tx.getToAccountId())) {
+                balances.merge(tx.getToAccountId(), amount.negate(), BigDecimal::add);
+            }
+        }
+
+        return balances;
     }
 
     private void updateSavingRate(String userId, String month) {

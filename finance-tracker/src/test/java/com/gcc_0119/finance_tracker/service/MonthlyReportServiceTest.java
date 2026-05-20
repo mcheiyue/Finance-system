@@ -265,17 +265,29 @@ class MonthlyReportServiceTest {
         when(transactionRepository.findByUserId("user1")).thenReturn(List.of(tx));
         when(accountRepository.findByUserId("user1")).thenReturn(List.of(incomeAccount, assetAccount));
         when(monthlyReportRepository.existsByUserIdAndMonth("user1", "2025-12")).thenReturn(false);
-        when(monthlyReportRepository.findByUserIdAndMonth("user1", "2025-12"))
-                .thenReturn(Optional.empty(), Optional.of(report), Optional.of(report));
-        when(monthlyReportRepository.save(any(MonthlyReport.class))).thenReturn(report);
+        when(monthlyReportRepository.save(any(MonthlyReport.class))).thenAnswer(invocation -> {
+            MonthlyReport saved = invocation.getArgument(0);
+            saved.setId("report-2025-12");
+            return saved;
+        });
         when(monthlyReportRepository.findByUserIdOrderByMonthDesc("user1")).thenReturn(List.of(report));
 
         List<MonthlyReport> result = monthlyReportService.listReports("user1");
 
         assertEquals(1, result.size());
         assertEquals("2025-12", result.get(0).getMonth());
-        verify(monthlyReportRepository).save(any(MonthlyReport.class));
-        verify(mongoTemplate, times(2)).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
+
+        var reportCaptor = org.mockito.ArgumentCaptor.forClass(MonthlyReport.class);
+        verify(monthlyReportRepository).save(reportCaptor.capture());
+        MonthlyReport savedReport = reportCaptor.getValue();
+        assertEquals(0, new BigDecimal("2000.00").compareTo(savedReport.getTotalIncome()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(savedReport.getTotalExpense()));
+        assertEquals(0, new BigDecimal("2000.00").compareTo(savedReport.getBalance()));
+        assertEquals(1, savedReport.getTransactionCount());
+        assertEquals(0, new BigDecimal("2000.00").compareTo(savedReport.getCategoryIncome().get("工资")));
+        assertEquals(0, new BigDecimal("5000.00").compareTo(savedReport.getAccountBalances().get("asset1")));
+        assertEquals(0, new BigDecimal("3000.00").compareTo(savedReport.getAccountBalances().get("inc1")));
+        verify(mongoTemplate, never()).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
     }
 
     @Test
