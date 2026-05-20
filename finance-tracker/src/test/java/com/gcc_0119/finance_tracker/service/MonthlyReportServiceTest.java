@@ -4,6 +4,7 @@ import com.gcc_0119.finance_tracker.exception.BusinessException;
 import com.gcc_0119.finance_tracker.model.*;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.MonthlyReportRepository;
+import com.gcc_0119.finance_tracker.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,6 +34,8 @@ class MonthlyReportServiceTest {
     private MonthlyReportRepository monthlyReportRepository;
     @Mock
     private AccountRepository accountRepository;
+    @Mock
+    private TransactionRepository transactionRepository;
     @Mock
     private MongoTemplate mongoTemplate;
 
@@ -215,6 +218,8 @@ class MonthlyReportServiceTest {
 
     @Test
     void listReports_returnsOrderByMonthDesc() {
+        when(transactionRepository.findByUserId("user1")).thenReturn(Collections.emptyList());
+
         MonthlyReport r1 = new MonthlyReport();
         r1.setId("r1");
         r1.setMonth("2026-05");
@@ -232,7 +237,50 @@ class MonthlyReportServiceTest {
     }
 
     @Test
+    void listReports_backfillsMissingMonthFromHistoricalTransactions() {
+        Account incomeAccount = new Account();
+        incomeAccount.setId("inc1");
+        incomeAccount.setType(AccountType.INCOME);
+        incomeAccount.setName("工资");
+        incomeAccount.setBalance(new BigDecimal("3000.00"));
+
+        Account assetAccount = new Account();
+        assetAccount.setId("asset1");
+        assetAccount.setType(AccountType.ASSET);
+        assetAccount.setName("默认现金");
+        assetAccount.setBalance(new BigDecimal("5000.00"));
+
+        Transaction tx = new Transaction();
+        tx.setUserId("user1");
+        tx.setFromAccountId("inc1");
+        tx.setToAccountId("asset1");
+        tx.setAmount(new BigDecimal("2000.00"));
+        tx.setTimestamp(LocalDateTime.of(2025, 12, 15, 10, 0));
+
+        MonthlyReport report = new MonthlyReport();
+        report.setId("report-2025-12");
+        report.setUserId("user1");
+        report.setMonth("2025-12");
+
+        when(transactionRepository.findByUserId("user1")).thenReturn(List.of(tx));
+        when(accountRepository.findByUserId("user1")).thenReturn(List.of(incomeAccount, assetAccount));
+        when(monthlyReportRepository.existsByUserIdAndMonth("user1", "2025-12")).thenReturn(false);
+        when(monthlyReportRepository.findByUserIdAndMonth("user1", "2025-12"))
+                .thenReturn(Optional.empty(), Optional.of(report), Optional.of(report));
+        when(monthlyReportRepository.save(any(MonthlyReport.class))).thenReturn(report);
+        when(monthlyReportRepository.findByUserIdOrderByMonthDesc("user1")).thenReturn(List.of(report));
+
+        List<MonthlyReport> result = monthlyReportService.listReports("user1");
+
+        assertEquals(1, result.size());
+        assertEquals("2025-12", result.get(0).getMonth());
+        verify(monthlyReportRepository).save(any(MonthlyReport.class));
+        verify(mongoTemplate, times(2)).updateFirst(any(Query.class), any(Update.class), eq(MonthlyReport.class));
+    }
+
+    @Test
     void getReport_notFound_throwsException() {
+        when(transactionRepository.findByUserId("user1")).thenReturn(Collections.emptyList());
         when(monthlyReportRepository.findByUserIdAndMonth("user1", "2026-05"))
                 .thenReturn(Optional.empty());
 

@@ -9,6 +9,7 @@ import com.gcc_0119.finance_tracker.model.MonthlyReport;
 import com.gcc_0119.finance_tracker.model.Transaction;
 import com.gcc_0119.finance_tracker.repository.AccountRepository;
 import com.gcc_0119.finance_tracker.repository.MonthlyReportRepository;
+import com.gcc_0119.finance_tracker.repository.TransactionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -27,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class MonthlyReportService {
@@ -36,6 +38,9 @@ public class MonthlyReportService {
 
     @Autowired
     private AccountRepository accountRepository;
+
+    @Autowired
+    private TransactionRepository transactionRepository;
 
     @Autowired
     private MongoTemplate mongoTemplate;
@@ -160,18 +165,57 @@ public class MonthlyReportService {
     }
 
     /**
-     * 查询用户所有月报
+     * 查询用户所有月报（自动回填历史缺失月报）
      */
     public List<MonthlyReport> listReports(String userId) {
+        backfillMissingReports(userId);
         return monthlyReportRepository.findByUserIdOrderByMonthDesc(userId);
     }
 
     /**
-     * 查询指定月报
+     * 查询指定月报（自动回填历史缺失月报）
      */
     public MonthlyReport getReport(String userId, String month) {
+        backfillMissingReports(userId);
         return monthlyReportRepository.findByUserIdAndMonth(userId, month)
                 .orElseThrow(() -> new BusinessException(404, "月报不存在"));
+    }
+
+    /**
+     * 幂等回填：为历史交易生成缺失的月报文档。
+     * 仅处理尚无月报文档的月份，已有月报的月份跳过。
+     */
+    private void backfillMissingReports(String userId) {
+        List<Transaction> allTransactions = transactionRepository.findByUserId(userId);
+        if (allTransactions.isEmpty()) {
+            return;
+        }
+
+        Map<String, List<Transaction>> byMonth = allTransactions.stream()
+                .collect(Collectors.groupingBy(t -> t.getTimestamp().format(MONTH_FORMAT)));
+
+        Map<String, Account> accountMap = accountRepository.findByUserId(userId).stream()
+                .collect(Collectors.toMap(Account::getId, a -> a));
+
+        for (Map.Entry<String, List<Transaction>> entry : byMonth.entrySet()) {
+            String month = entry.getKey();
+            if (monthlyReportRepository.existsByUserIdAndMonth(userId, month)) {
+                continue;
+            }
+
+            List<Transaction> transactions = entry.getValue().stream()
+                    .sorted((a, b) -> a.getTimestamp().compareTo(b.getTimestamp()))
+                    .collect(Collectors.toList());
+
+            for (Transaction tx : transactions) {
+                Account fromAccount = accountMap.get(tx.getFromAccountId());
+                Account toAccount = accountMap.get(tx.getToAccountId());
+                if (fromAccount == null || toAccount == null) {
+                    continue;
+                }
+                onTransactionCreated(tx, fromAccount, toAccount);
+            }
+        }
     }
 
     private void updateSavingRate(String userId, String month) {
