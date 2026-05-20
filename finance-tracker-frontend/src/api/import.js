@@ -9,5 +9,5 @@ export const previewCsv = (file) => {
 };
 
 export const confirmCsvImport = (transactions) => {
-  return request.post('/csv/confirm', { transactions });
+  return request.post('/csv/confirm', transactions);
 };

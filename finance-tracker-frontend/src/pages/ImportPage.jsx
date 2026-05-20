@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Card, Table, Upload, Button, Steps, Alert, Tag, Spin, Result,
   theme, Typography, App, Grid, Space, Descriptions, Statistic, Row, Col
@@ -9,6 +9,7 @@ import {
   ImportOutlined, ReloadOutlined
 } from '@ant-design/icons';
 import { previewCsv, confirmCsvImport } from '../api/import';
+import { getAccounts } from '../api/account';
 
 const { Dragger } = Upload;
 const { Text } = Typography;
@@ -23,6 +24,20 @@ function ImportPage() {
   const [previewData, setPreviewData] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+
+  useEffect(() => {
+    getAccounts().then(setAccounts).catch(() => setAccounts([]));
+  }, []);
+
+  const accountNameMap = useMemo(() => (
+    Object.fromEntries((accounts || []).map(account => [account.id, account.name]))
+  ), [accounts]);
+
+  const resolveAccountName = useCallback((accountId) => {
+    if (!accountId) return '-';
+    return accountNameMap[accountId] || accountId;
+  }, [accountNameMap]);
 
   const handleUpload = useCallback(async (file) => {
     setLoading(true);
@@ -53,8 +68,7 @@ function ImportPage() {
     if (!previewData?.transactions) return;
     setLoading(true);
     try {
-      const validTransactions = previewData.transactions.filter(t => t.valid);
-      const result = await confirmCsvImport(validTransactions);
+      const result = await confirmCsvImport(previewData.transactions);
       setImportResult(result);
       message.success('导入成功');
     } catch {
@@ -72,8 +86,8 @@ function ImportPage() {
     setSelectedFile(null);
   }, []);
 
-  const validTransactions = previewData?.transactions?.filter(t => t.valid) || [];
-  const invalidTransactions = previewData?.transactions?.filter(t => !t.valid) || [];
+  const validTransactions = previewData?.transactions || [];
+  const invalidErrors = previewData?.errors || [];
 
   const previewColumns = [
     {
@@ -95,17 +109,17 @@ function ImportPage() {
     },
     {
       title: '来源账户',
-      dataIndex: 'fromAccountName',
+      dataIndex: 'fromAccountId',
       width: 140,
       ellipsis: true,
-      render: (text) => <Text type="secondary">{text || '-'}</Text>
+      render: (accountId) => <Text type="secondary">{resolveAccountName(accountId)}</Text>
     },
     {
       title: '目标账户',
-      dataIndex: 'toAccountName',
+      dataIndex: 'toAccountId',
       width: 140,
       ellipsis: true,
-      render: (text) => <Text type="secondary">{text || '-'}</Text>
+      render: (accountId) => <Text type="secondary">{resolveAccountName(accountId)}</Text>
     },
     {
       title: '时间',
@@ -115,14 +129,9 @@ function ImportPage() {
     },
     {
       title: '状态',
-      dataIndex: 'valid',
       width: 80,
       align: 'center',
-      render: (valid, record) => (
-        valid
-          ? <Tag color="success">有效</Tag>
-          : <Tag color="error" title={record.error}>无效</Tag>
-      )
+      render: () => <Tag color="success">有效</Tag>
     }
   ];
 
@@ -146,17 +155,17 @@ function ImportPage() {
     },
     {
       title: '来源账户',
-      dataIndex: 'fromAccountName',
+      dataIndex: 'fromAccountId',
       width: 140,
       ellipsis: true,
-      render: (text) => <Text type="secondary">{text || '-'}</Text>
+      render: (accountId) => <Text type="secondary">{resolveAccountName(accountId)}</Text>
     },
     {
       title: '目标账户',
-      dataIndex: 'toAccountName',
+      dataIndex: 'toAccountId',
       width: 140,
       ellipsis: true,
-      render: (text) => <Text type="secondary">{text || '-'}</Text>
+      render: (accountId) => <Text type="secondary">{resolveAccountName(accountId)}</Text>
     },
     {
       title: '时间',
@@ -259,18 +268,16 @@ function ImportPage() {
             </Col>
           </Row>
 
-          {invalidTransactions.length > 0 && (
+          {invalidErrors.length > 0 && (
             <Alert
-              message={`${invalidTransactions.length} 条记录解析失败`}
+              message={`${invalidErrors.length} 条记录解析失败`}
               description={
                 <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {invalidTransactions.slice(0, 5).map((item, index) => (
-                    <li key={index}>
-                      <Text type="danger">第 {previewData.transactions.indexOf(item) + 1} 行: {item.error || '未知错误'}</Text>
-                    </li>
+                  {invalidErrors.slice(0, 5).map((error, index) => (
+                    <li key={index}><Text type="danger">{error}</Text></li>
                   ))}
-                  {invalidTransactions.length > 5 && (
-                    <li><Text type="secondary">...还有 {invalidTransactions.length - 5} 条错误</Text></li>
+                  {invalidErrors.length > 5 && (
+                    <li><Text type="secondary">...还有 {invalidErrors.length - 5} 条错误</Text></li>
                   )}
                 </ul>
               }
@@ -339,7 +346,7 @@ function ImportPage() {
         <div>
           <Alert
             message="请确认以下信息"
-            description={`即将导入 ${validTransactions.length} 条有效交易记录，${invalidTransactions.length > 0 ? `另有 ${invalidTransactions.length} 条无效记录将被跳过，` : ''}请确认无误后点击"确认导入"。`}
+            description={`即将导入 ${validTransactions.length} 条有效交易记录，${invalidErrors.length > 0 ? `另有 ${invalidErrors.length} 条无效记录已在预览阶段剔除，` : ''}请确认无误后点击"确认导入"。`}
             type="info"
             showIcon
             style={{ marginBottom: token.marginLG }}
@@ -358,7 +365,7 @@ function ImportPage() {
               <Text style={{ color: token.colorSuccess }}>{validTransactions.length}</Text>
             </Descriptions.Item>
             <Descriptions.Item label="无效行数">
-              <Text style={{ color: token.colorError }}>{invalidTransactions.length}</Text>
+              <Text style={{ color: token.colorError }}>{invalidErrors.length}</Text>
             </Descriptions.Item>
           </Descriptions>
 
